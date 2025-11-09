@@ -39,20 +39,3 @@ class MpesaPaymentRequest(PaymentRequest):
 
 class CardPaymentRequest(PaymentRequest):
     customerEmail: str = Field(..., description="Customer email address for card payment")
-
-class PaystackPaymentRequest(CardPaymentRequest):
-    gateway: str = Field("paystack", description="Payment gateway provider (Paystack)")
-
-class StripePaymentRequest(CardPaymentRequest):
-    gateway: str = Field("stripe", description="Payment gateway provider (Stripe)")
-
-
-class PaymentRequestPayload(BaseModel):
-    amount: float = Field(..., description="Amount charged")
-    currency: str = Field(..., description="Currency code (e.g. KES, USD)")
-    merchantReference: str = Field(..., description="Unique merchant reference or order ID")
-    transactionDesc: str = Field(..., description="Description of the payment transaction")
-    callbackUrl: str = Field(..., description="Webhook URL for payment status updates")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata about the transaction")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata")
-    customerPhone: Optional[str] = Field(None, description="Customer phone number")
