@@ -35,20 +35,14 @@ class PaymentClient(ABC):
     def callback(self):
         ...
     
-    def query(self, gateway: str, payment_reference: str)->PaymentQueryResponse:
+    def query(self, data: PaymentQueryRequest)->PaymentQueryResponse:
         headers =self._headers
-        data = PaymentQueryRequest(
-            gateway=gateway, 
-            payment_reference=payment_reference
-        )
-
         response = self.client.request(
             method='POST',
             headers=headers,
             json =data.model_dump(),
             url=f'{self.base_url}/api/payment/query',
         )
-
         return PaymentQueryResponse(**response)
     
     @property
