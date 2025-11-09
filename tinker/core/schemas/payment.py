@@ -24,14 +24,13 @@ class PaymentQueryRequest(BaseModel):
     gateway: str = Field(..., description="Payment gateway provider (Mpesa, Paystack, Stripe, Ayden)")
 
 class PaymentQueryResponse(BaseModel):
-    id: str = Field(..., description="Unique payment reference from the gateway")
-    status: str = Field(..., description="Unique payment reference from the gateway")
+    id: str = Field(..., description="Unique payment identifier")
+    status: str = Field(..., description="Payment status")
     reference: str = Field(..., description="Unique payment reference from the gateway")
-    amount: float = Field(..., description="Unique payment reference from the gateway")
-    currency: str = Field(..., description="Unique payment reference from the gateway")
-    paid_at: str = Field(..., description="Unique payment reference from the gateway")
-    created_at: str = Field(..., description="Unique payment reference from the gateway")
-    channel: str = Field(..., description="Unique payment reference from the gateway")
+    amount: float = Field(..., description="Amount paid")
+    currency: str = Field(..., description="Currency code")
+    created_at: str = Field(..., description="Date payment was created")
+    channel: str = Field(..., description="The gateway used for the payment")
 
 
 class MpesaPaymentRequest(PaymentRequest):
