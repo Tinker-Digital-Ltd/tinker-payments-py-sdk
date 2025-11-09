@@ -1,6 +1,6 @@
 from typing import Dict, Any
 from tinker.core.http import PaymentClient
-from tinker.core.schemas.payment import MpesaPaymentRequest, PaymentQueryResponse, PaymentResponse
+from tinker.core.schemas.payment import MpesaPaymentRequest, PaymentQueryResponse, PaymentResponse, PaymentQueryRequest
 
 
 class Mpesa(PaymentClient):
@@ -12,5 +12,9 @@ class Mpesa(PaymentClient):
         payload: Dict[str, Any] ={ **data.model_dump(), 'gateway': 'mpesa' }
         return super().initiate(payload)
 
-    def query(self, gateway: str, payment_reference: str) -> PaymentQueryResponse:
-        return super().query(gateway, payment_reference)
+    def query(self, payment_reference:str) -> PaymentQueryResponse: # pyright: ignore[reportIncompatibleMethodOverride]
+        data =PaymentQueryRequest(
+            gateway='mpesa',
+            payment_reference=payment_reference
+        )
+        return super().query(data)
