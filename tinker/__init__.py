@@ -1,1 +1,3 @@
-from .client import TinkerClient # type: ignore
+from .client import TinkerClient
+
+__all__ = ["TinkerClient"]
