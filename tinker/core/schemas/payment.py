@@ -38,3 +38,9 @@ class MpesaPaymentRequest(PaymentRequest):
 
 class CardPaymentRequest(PaymentRequest):
     customerEmail: str = Field(..., description="Customer email address for card payment")
+
+class StripePaymentRequest(CardPaymentRequest):
+    ...
+
+class PaystackPaymentRequest(CardPaymentRequest):
+    ...
