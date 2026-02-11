@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tinker-payments"
-version = "0.1.0"
-description = "Python SDK for Tinker payment gateway integrations"
+version = "0.2.0"
+description = "Python SDK for the standardized Tinker Payments API"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
@@ -13,9 +13,7 @@ authors = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-  "pydantic>=2.12.0",
-  "requests>=2.32.0",
-  "python-dotenv>=1.0.0"
+  "requests>=2.32.0"
 ]
 
 [project.urls]
