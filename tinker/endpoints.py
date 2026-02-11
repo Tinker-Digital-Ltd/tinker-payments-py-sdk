@@ -1,0 +1,10 @@
+"""API endpoint constants."""
+
+PRODUCTION_BASE_URL = "https://api.tinkerpayments.com"
+SANDBOX_BASE_URL = "https://sandbox-api.tinkerpayments.com"
+API_VERSION_PATH = "/v1"
+AUTH_TOKEN_PATH = "/auth/token"
+PAYMENT_INITIATE_PATH = "/merchant/payment/initiate"
+PAYMENT_QUERY_PATH = "/merchant/payment/query"
+SUBSCRIPTION_BASE_PATH = "/merchant/subscriptions"
+SUBSCRIPTION_PLANS_PATH = "/merchant/subscriptions/plans"

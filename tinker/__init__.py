@@ -1,3 +1,3 @@
-from .client import TinkerClient
+from .client import TinkerClient, TinkerPayments
 
-__all__ = ["TinkerClient"]
+__all__ = ["TinkerClient", "TinkerPayments"]

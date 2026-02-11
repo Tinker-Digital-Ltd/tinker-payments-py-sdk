@@ -1,27 +1,16 @@
-from typing import Optional
-from tinker.gateways import Mpesa, Paystack, Stripe
+from typing import Any
+
+from .api import SubscriptionManager, TransactionManager
+from .configuration import Configuration
+from .models import ApiMeta
+from .webhook import WebhookHandler
 
 class TinkerClient:
-    api_key: str
-    api_secret: str
-    base_url: str
+    config: Configuration
+    def __init__(self, api_public_key: str, api_secret_key: str, base_url: str | None = None, session: Any | None = None) -> None: ...
+    def transactions(self) -> TransactionManager: ...
+    def subscriptions(self) -> SubscriptionManager: ...
+    def webhooks(self) -> WebhookHandler: ...
+    def get_last_auth_meta(self) -> ApiMeta | None: ...
 
-    def __init__(
-        self,
-        api_key: Optional[str] = ...,
-        api_secret: Optional[str] = ...,
-        base_url: Optional[str] = ...,
-    ) -> None: 
-        ...
-
-    @property
-    def mpesa(self) -> Mpesa: 
-        ...
-
-    @property
-    def stripe(self) -> Stripe: 
-        ...
-
-    @property
-    def paystack(self) -> Paystack: 
-        ...
+TinkerPayments = TinkerClient
