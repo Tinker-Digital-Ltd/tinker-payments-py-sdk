@@ -53,16 +53,21 @@ class BaseManager:
                 json=data if data else None,
                 timeout=30,
             )
-            result = response.json() if response.text else {}
+            try:
+                result = response.json() if response.text else {}
+            except ValueError:
+                if response.status_code < 400:
+                    raise
+                result = {}
 
             if response.status_code >= 400:
-                raise ApiError(self._extract_error_message(result))
+                raise self._api_error(response, result)
 
             if isinstance(result, dict) and "success" in result:
                 self._last_meta = ApiMeta.from_dict(result.get("meta") if isinstance(result.get("meta"), dict) else {})
 
                 if result.get("success") is False:
-                    raise ApiError(self._extract_error_message(result))
+                    raise self._api_error(response, result)
 
                 payload = result.get("data")
                 if isinstance(payload, (dict, list)):
@@ -74,6 +79,14 @@ class BaseManager:
             raise
         except Exception as exc:  # noqa: BLE001
             raise NetworkError(f"Failed to communicate with Tinker API: {exc}") from exc
+
+    def _api_error(self, response: Any, result: Any) -> ApiError:
+        return ApiError(
+            self._extract_error_message(result),
+            http_status=response.status_code,
+            details=result,
+            headers=getattr(response, "headers", {}),
+        )
 
     @staticmethod
     def _extract_error_message(result: Any) -> str:

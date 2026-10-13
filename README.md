@@ -99,3 +99,14 @@ if not client.webhooks().verify_signature(event, "whsec_..."):
 ```
 
 Signature verification uses HMAC-SHA256 over a JSON object containing `id`, `type`, `source`, `timestamp`, `data`, and `meta`.
+
+## API errors
+
+API exceptions preserve `http_status`, `error_code`, `provider_code`, `request_id`, `retry_after`, and `outcome`.
+Request IDs prefer `error.request_id` over the `X-Request-ID` header. `Retry-After`
+is retained as its original header string. Non-JSON HTTP failures retain status and
+headers as API errors with an unknown outcome. Existing exception constructors and
+legacy code/message access remain compatible.
+
+Only an explicit `not_applied` outcome confirms no mutation. A missing outcome
+remains uncertain.
