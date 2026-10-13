@@ -10,6 +10,7 @@ from .configuration import Configuration
 from .exceptions import ApiError, NetworkError
 from .models import ApiMeta
 
+requests: Any
 try:
     import requests
 except ModuleNotFoundError:  # pragma: no cover
@@ -24,7 +25,9 @@ class AuthenticationManager:
         elif requests is not None:
             self._session = requests.Session()
         else:
-            raise NetworkError("requests is required unless a custom session is provided")
+            raise NetworkError(
+                "requests is required unless a custom session is provided"
+            )
         self._token: str | None = None
         self._expires_at: int | None = None
         self._last_meta: ApiMeta | None = None
@@ -44,7 +47,7 @@ class AuthenticationManager:
 
     def _fetch_token(self) -> str:
         credentials = base64.b64encode(
-            f"{self._config.api_public_key}:{self._config.api_secret_key}".encode("utf-8")
+            f"{self._config.api_public_key}:{self._config.api_secret_key}".encode()
         ).decode("utf-8")
 
         try:
@@ -73,12 +76,14 @@ class AuthenticationManager:
             return self._token
         except ApiError:
             raise
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise NetworkError(f"Failed to authenticate: {exc}") from exc
 
     def _extract_auth_data(self, result: Any) -> dict[str, Any]:
         if isinstance(result, dict) and "success" in result:
-            self._last_meta = ApiMeta.from_dict(result.get("meta") if isinstance(result.get("meta"), dict) else {})
+            self._last_meta = ApiMeta.from_dict(
+                result.get("meta") if isinstance(result.get("meta"), dict) else {}
+            )
 
             if result.get("success") is False:
                 raise ApiError(self._extract_error_message(result))
@@ -92,7 +97,9 @@ class AuthenticationManager:
         if isinstance(result, dict):
             if isinstance(result.get("error"), dict):
                 error = result["error"]
-                return str(error.get("message") or error.get("code") or "Authentication failed")
+                return str(
+                    error.get("message") or error.get("code") or "Authentication failed"
+                )
 
             if "message" in result:
                 return str(result["message"])

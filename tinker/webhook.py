@@ -37,7 +37,7 @@ class PaymentEventData:
     paid_at: str | None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PaymentEventData":
+    def from_dict(cls, data: dict[str, Any]) -> PaymentEventData:
         return cls(
             id=str(data.get("id", "")),
             status=str(data.get("status", "pending")),
@@ -64,21 +64,31 @@ class SubscriptionEventData:
     reactivated_at: str | None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SubscriptionEventData":
+    def from_dict(cls, data: dict[str, Any]) -> SubscriptionEventData:
         current_start = data.get("current_period_start")
         return cls(
             id=str(data.get("subscription_id", data.get("id", ""))),
             status=str(data.get("status", "")),
             plan_id=str(data.get("plan_id", "")),
             account_id=str(data.get("account_id", data.get("customer_id", ""))),
-            current_period_start=str(current_start) if current_start is not None else None,
+            current_period_start=str(current_start)
+            if current_start is not None
+            else None,
             current_period_end=(
-                str(data["current_period_end"]) if data.get("current_period_end") is not None else None
+                str(data["current_period_end"])
+                if data.get("current_period_end") is not None
+                else None
             ),
             created_at=str(data.get("created_at") or current_start or ""),
-            cancelled_at=str(data["cancelled_at"]) if data.get("cancelled_at") is not None else None,
-            paused_at=str(data["paused_at"]) if data.get("paused_at") is not None else None,
-            reactivated_at=str(data["reactivated_at"]) if data.get("reactivated_at") is not None else None,
+            cancelled_at=str(data["cancelled_at"])
+            if data.get("cancelled_at") is not None
+            else None,
+            paused_at=str(data["paused_at"])
+            if data.get("paused_at") is not None
+            else None,
+            reactivated_at=str(data["reactivated_at"])
+            if data.get("reactivated_at") is not None
+            else None,
         )
 
 
@@ -94,7 +104,7 @@ class InvoiceEventData:
     paid_at: str | None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "InvoiceEventData":
+    def from_dict(cls, data: dict[str, Any]) -> InvoiceEventData:
         return cls(
             id=str(data.get("invoice_id", data.get("id", ""))),
             status=str(data.get("status", "")),
@@ -119,16 +129,20 @@ class SettlementEventData:
     processed_at: str | None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SettlementEventData":
+    def from_dict(cls, data: dict[str, Any]) -> SettlementEventData:
         return cls(
             id=str(data.get("settlement_id", data.get("id", ""))),
             status=str(data.get("status", "")),
             amount=float(data.get("amount", 0)),
-            net_amount=float(data["net_amount"]) if data.get("net_amount") is not None else None,
+            net_amount=float(data["net_amount"])
+            if data.get("net_amount") is not None
+            else None,
             currency=str(data.get("currency", "")),
             settlement_date=str(data.get("settlement_date", "")),
             created_at=str(data.get("created_at", "")),
-            processed_at=str(data["processed_at"]) if data.get("processed_at") is not None else None,
+            processed_at=str(data["processed_at"])
+            if data.get("processed_at") is not None
+            else None,
         )
 
 
@@ -138,17 +152,30 @@ class WebhookEvent:
     type: str
     source: str
     timestamp: str
-    data: PaymentEventData | SubscriptionEventData | InvoiceEventData | SettlementEventData
+    data: (
+        PaymentEventData
+        | SubscriptionEventData
+        | InvoiceEventData
+        | SettlementEventData
+    )
     meta: WebhookMeta
     security: WebhookSecurity
     raw_data: dict[str, Any]
     raw_meta: dict[str, Any]
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "WebhookEvent":
+    def from_dict(cls, payload: dict[str, Any]) -> WebhookEvent:
         source = str(payload.get("source", ""))
-        raw_data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
-        raw_meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+        data_input = payload.get("data")
+        meta_input = payload.get("meta")
+        raw_data = data_input if isinstance(data_input, dict) else {}
+        raw_meta = meta_input if isinstance(meta_input, dict) else {}
+        event_data: (
+            PaymentEventData
+            | SubscriptionEventData
+            | InvoiceEventData
+            | SettlementEventData
+        )
 
         if source == "payment":
             event_data = PaymentEventData.from_dict(raw_data)
@@ -161,7 +188,8 @@ class WebhookEvent:
         else:
             raise InvalidPayloadError(f"Unknown webhook source: {source}")
 
-        security_input = payload.get("security") if isinstance(payload.get("security"), dict) else {}
+        security_value = payload.get("security")
+        security_input = security_value if isinstance(security_value, dict) else {}
 
         return cls(
             id=str(payload.get("id", "")),
@@ -172,7 +200,9 @@ class WebhookEvent:
             meta=WebhookMeta(
                 version=str(raw_meta.get("version", "1.0")),
                 app_id=str(raw_meta.get("app_id", "")),
-                gateway=str(raw_meta["gateway"]) if raw_meta.get("gateway") is not None else None,
+                gateway=str(raw_meta["gateway"])
+                if raw_meta.get("gateway") is not None
+                else None,
             ),
             security=WebhookSecurity(
                 signature=str(security_input.get("signature", "")),
@@ -183,7 +213,7 @@ class WebhookEvent:
         )
 
     def to_transaction(self) -> Transaction | None:
-        if self.source != "payment":
+        if self.source != "payment" or not isinstance(self.data, PaymentEventData):
             return None
 
         return Transaction.from_dict(
@@ -215,7 +245,9 @@ class WebhookHandler:
 
         return WebhookEvent.from_dict(data)
 
-    def handle_as_transaction(self, payload: str | dict[str, Any]) -> Transaction | None:
+    def handle_as_transaction(
+        self, payload: str | dict[str, Any]
+    ) -> Transaction | None:
         event = self.handle(payload)
         return event.to_transaction()
 
@@ -241,11 +273,16 @@ class WebhookHandler:
             "meta": event.raw_meta,
         }
 
-        encoded = json.dumps(payload_without_security, separators=(",", ":"), ensure_ascii=False)
-        computed = "sha256=" + hmac.new(
-            webhook_secret.encode("utf-8"),
-            encoded.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
+        encoded = json.dumps(
+            payload_without_security, separators=(",", ":"), ensure_ascii=False
+        )
+        computed = (
+            "sha256="
+            + hmac.new(
+                webhook_secret.encode("utf-8"),
+                encoded.encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         return hmac.compare_digest(signature, computed)

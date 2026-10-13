@@ -30,7 +30,9 @@ class TinkerClient:
         elif requests is not None:
             self._session = requests.Session()
         else:
-            raise RuntimeError("requests is required unless a custom session is provided")
+            raise RuntimeError(
+                "requests is required unless a custom session is provided"
+            )
         self._auth_manager = AuthenticationManager(self._config, self._session)
         self._transactions: TransactionManager | None = None
         self._subscriptions: SubscriptionManager | None = None
@@ -42,12 +44,16 @@ class TinkerClient:
 
     def transactions(self) -> TransactionManager:
         if self._transactions is None:
-            self._transactions = TransactionManager(self._config, self._auth_manager, self._session)
+            self._transactions = TransactionManager(
+                self._config, self._auth_manager, self._session
+            )
         return self._transactions
 
     def subscriptions(self) -> SubscriptionManager:
         if self._subscriptions is None:
-            self._subscriptions = SubscriptionManager(self._config, self._auth_manager, self._session)
+            self._subscriptions = SubscriptionManager(
+                self._config, self._auth_manager, self._session
+            )
         return self._subscriptions
 
     def webhooks(self) -> WebhookHandler:

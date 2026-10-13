@@ -13,7 +13,7 @@ class ApiMeta:
     environment: str | None = None
 
     @classmethod
-    def from_dict(cls, meta: dict[str, Any] | None) -> "ApiMeta":
+    def from_dict(cls, meta: dict[str, Any] | None) -> ApiMeta:
         meta = meta or {}
         return cls(
             request_id=str(meta["request_id"]) if "request_id" in meta else None,
@@ -30,11 +30,11 @@ class Transaction:
     callback_data: dict[str, Any] | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "Transaction":
+    def from_dict(cls, data: dict[str, Any] | None) -> Transaction:
         data = data or {}
         has_initiation_ref = (
-            ("paymentReference" in data or "payment_reference" in data) and "id" not in data
-        )
+            "paymentReference" in data or "payment_reference" in data
+        ) and "id" not in data
         has_query_shape = "id" in data and "reference" in data
 
         if has_initiation_ref:

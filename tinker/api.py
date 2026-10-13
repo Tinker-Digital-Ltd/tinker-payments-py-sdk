@@ -5,14 +5,14 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote, urlencode
 
-from .managed_checkout import ManagedCheckout
-
 from . import endpoints
 from .auth import AuthenticationManager
 from .configuration import Configuration
 from .exceptions import ApiError, NetworkError
+from .managed_checkout import ManagedCheckout
 from .models import ApiMeta, Transaction
 
+requests: Any
 try:
     import requests
 except ModuleNotFoundError:  # pragma: no cover
@@ -33,13 +33,17 @@ class BaseManager:
         elif requests is not None:
             self._session = requests.Session()
         else:
-            raise NetworkError("requests is required unless a custom session is provided")
+            raise NetworkError(
+                "requests is required unless a custom session is provided"
+            )
         self._last_meta: ApiMeta | None = None
 
     def get_last_meta(self) -> ApiMeta | None:
         return self._last_meta
 
-    def _request(self, method: str, endpoint: str, data: dict[str, Any] | None = None) -> Any:
+    def _request(
+        self, method: str, endpoint: str, data: dict[str, Any] | None = None
+    ) -> Any:
         base_url = self._config.base_url.rstrip("/")
         url = f"{base_url}/{endpoint.lstrip('/')}"
         token = self._auth_manager.get_token()
@@ -67,7 +71,9 @@ class BaseManager:
                 raise self._api_error(response, result)
 
             if isinstance(result, dict) and "success" in result:
-                self._last_meta = ApiMeta.from_dict(result.get("meta") if isinstance(result.get("meta"), dict) else {})
+                self._last_meta = ApiMeta.from_dict(
+                    result.get("meta") if isinstance(result.get("meta"), dict) else {}
+                )
 
                 if result.get("success") is False:
                     raise self._api_error(response, result)
@@ -80,7 +86,7 @@ class BaseManager:
             return result if isinstance(result, (dict, list)) else {}
         except ApiError:
             raise
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise NetworkError(f"Failed to communicate with Tinker API: {exc}") from exc
 
     def _api_error(self, response: Any, result: Any) -> ApiError:
