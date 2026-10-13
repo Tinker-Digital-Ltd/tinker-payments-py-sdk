@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote, urlencode
+
+from .managed_checkout import ManagedCheckout
 
 from . import endpoints
 from .auth import AuthenticationManager
@@ -149,3 +152,74 @@ class SubscriptionManager(BaseManager):
         endpoint = f"{endpoints.SUBSCRIPTION_BASE_PATH}/{subscription_id}/cancel"
         response = self._request("POST", endpoint)
         return response if isinstance(response, dict) else {"value": response}
+
+    def checkout(self, request: ManagedCheckout) -> dict[str, Any]:
+        return self._request("POST", "merchant/billing/checkout", request.to_dict())
+
+    def billing_resource(self, resource_id: str) -> dict[str, Any]:
+        return self._request("GET", self._billing_resource_path(resource_id))
+
+    def change_quantity(
+        self, resource_id: str, quantity: int, key: str
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/quantity",
+            {"quantity": quantity, "idempotency_key": key},
+        )
+
+    def schedule_quantity(
+        self, resource_id: str, quantity: int, key: str
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/schedule",
+            {"quantity": quantity, "idempotency_key": key},
+        )
+
+    def clear_scheduled_quantity(self, resource_id: str, key: str) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/unschedule",
+            {"idempotency_key": key},
+        )
+
+    def set_cancel_at_renewal(
+        self, resource_id: str, cancel: bool, key: str
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/cancel",
+            {"cancel": cancel, "idempotency_key": key},
+        )
+
+    def billing_operation(self, key: str) -> dict[str, Any]:
+        return self._request(
+            "GET", "merchant/billing/operations/" + quote(key, safe="")
+        )
+
+    def payment_method_portal(
+        self, resource_id: str, return_url: str, key: str
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/payment-method",
+            {"return_url": return_url, "idempotency_key": key},
+        )
+
+    def billing_payment_history(
+        self, resource_id: str, cursor: str = "", snapshot: int = 0
+    ) -> dict[str, Any]:
+        params = {}
+        if cursor:
+            params["starting_after"] = cursor
+        if snapshot > 0:
+            params["snapshot"] = str(snapshot)
+        endpoint = self._billing_resource_path(resource_id) + "/payment-history"
+        if params:
+            endpoint += "?" + urlencode(params)
+        return self._request("GET", endpoint)
+
+    @staticmethod
+    def _billing_resource_path(resource_id: str) -> str:
+        return "merchant/billing/resources/" + quote(resource_id, safe="")
