@@ -26,6 +26,15 @@ class WebhookMeta:
 
 
 @dataclass(frozen=True)
+class OnboardingEventData:
+    message: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OnboardingEventData:
+        return cls(message=str(data.get("message", "")))
+
+
+@dataclass(frozen=True)
 class PaymentEventData:
     id: str
     status: str
@@ -157,6 +166,7 @@ class WebhookEvent:
         | SubscriptionEventData
         | InvoiceEventData
         | SettlementEventData
+        | OnboardingEventData
     )
     meta: WebhookMeta
     security: WebhookSecurity
@@ -175,9 +185,12 @@ class WebhookEvent:
             | SubscriptionEventData
             | InvoiceEventData
             | SettlementEventData
+            | OnboardingEventData
         )
 
-        if source == "payment":
+        if source == "onboarding":
+            event_data = OnboardingEventData.from_dict(raw_data)
+        elif source == "payment":
             event_data = PaymentEventData.from_dict(raw_data)
         elif source == "subscription":
             event_data = SubscriptionEventData.from_dict(raw_data)
@@ -211,6 +224,13 @@ class WebhookEvent:
             raw_data=raw_data,
             raw_meta=raw_meta,
         )
+
+    def is_onboarding_event(self) -> bool:
+        return self.source == "onboarding"
+
+    def is_setup_test(self) -> bool:
+        """Identify a setup test; verify its signature before acknowledging."""
+        return self.is_onboarding_event() and self.type == "setup.webhook_test"
 
     def to_transaction(self) -> Transaction | None:
         if self.source != "payment" or not isinstance(self.data, PaymentEventData):
@@ -261,7 +281,7 @@ class WebhookHandler:
 
         event = payload if isinstance(payload, WebhookEvent) else self.handle(payload)
         signature = event.security.signature
-        if not signature.startswith("sha256="):
+        if event.security.algorithm != "HMAC-SHA256" or not signature.startswith("sha256="):
             return False
 
         payload_without_security = {
@@ -269,13 +289,15 @@ class WebhookHandler:
             "type": event.type,
             "source": event.source,
             "timestamp": event.timestamp,
-            "data": event.raw_data,
-            "meta": event.raw_meta,
+            "data": self._sort_maps(event.raw_data),
+            "meta": self._sort_maps(event.raw_meta),
         }
 
         encoded = json.dumps(
             payload_without_security, separators=(",", ":"), ensure_ascii=False
         )
+        for char in ("<", ">", "&", "\u2028", "\u2029"):
+            encoded = encoded.replace(char, f"\\u{ord(char):04x}")
         computed = (
             "sha256="
             + hmac.new(
@@ -286,3 +308,11 @@ class WebhookHandler:
         )
 
         return hmac.compare_digest(signature, computed)
+
+
+    def _sort_maps(self, value: Any) -> Any:
+        if isinstance(value, dict):
+            return {key: self._sort_maps(value[key]) for key in sorted(value)}
+        if isinstance(value, list):
+            return [self._sort_maps(item) for item in value]
+        return value
