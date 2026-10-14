@@ -54,7 +54,9 @@ class FakeSession:
 class SdkTests(unittest.TestCase):
     def test_sandbox_url_resolution(self):
         client = TinkerClient("pk_test_123", "sk_test_123", session=FakeSession())
-        self.assertEqual(client.config.base_url, "https://sandbox-api.tinkerpayments.com/v1/")
+        self.assertEqual(
+            client.config.base_url, "https://sandbox-api.tinkerpayments.com/v1/"
+        )
 
     def test_auth_meta_is_mapped(self):
         session = FakeSession()
@@ -91,8 +93,8 @@ class SdkTests(unittest.TestCase):
                 "type": payload["type"],
                 "source": payload["source"],
                 "timestamp": payload["timestamp"],
-                "data": payload["data"],
-                "meta": payload["meta"],
+                "data": dict(sorted(payload["data"].items())),
+                "meta": dict(sorted(payload["meta"].items())),
             },
             separators=(",", ":"),
             ensure_ascii=False,
@@ -100,7 +102,8 @@ class SdkTests(unittest.TestCase):
 
         payload["security"] = {
             "algorithm": "HMAC-SHA256",
-            "signature": "sha256=" + hmac.new(secret.encode(), raw.encode(), hashlib.sha256).hexdigest(),
+            "signature": "sha256="
+            + hmac.new(secret.encode(), raw.encode(), hashlib.sha256).hexdigest(),
         }
 
         self.assertTrue(client.webhooks().verify_signature(payload, secret))

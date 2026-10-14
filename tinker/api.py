@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote, urlencode
 
 from . import endpoints
 from .auth import AuthenticationManager
 from .configuration import Configuration
 from .exceptions import ApiError, NetworkError
+from .managed_checkout import ManagedCheckout
 from .models import ApiMeta, Transaction
 
+requests: Any
 try:
     import requests
 except ModuleNotFoundError:  # pragma: no cover
@@ -30,13 +33,17 @@ class BaseManager:
         elif requests is not None:
             self._session = requests.Session()
         else:
-            raise NetworkError("requests is required unless a custom session is provided")
+            raise NetworkError(
+                "requests is required unless a custom session is provided"
+            )
         self._last_meta: ApiMeta | None = None
 
     def get_last_meta(self) -> ApiMeta | None:
         return self._last_meta
 
-    def _request(self, method: str, endpoint: str, data: dict[str, Any] | None = None) -> Any:
+    def _request(
+        self, method: str, endpoint: str, data: dict[str, Any] | None = None
+    ) -> Any:
         base_url = self._config.base_url.rstrip("/")
         url = f"{base_url}/{endpoint.lstrip('/')}"
         token = self._auth_manager.get_token()
@@ -53,16 +60,23 @@ class BaseManager:
                 json=data if data else None,
                 timeout=30,
             )
-            result = response.json() if response.text else {}
+            try:
+                result = response.json() if response.text else {}
+            except ValueError:
+                if response.status_code < 400:
+                    raise
+                result = {}
 
             if response.status_code >= 400:
-                raise ApiError(self._extract_error_message(result))
+                raise self._api_error(response, result)
 
             if isinstance(result, dict) and "success" in result:
-                self._last_meta = ApiMeta.from_dict(result.get("meta") if isinstance(result.get("meta"), dict) else {})
+                self._last_meta = ApiMeta.from_dict(
+                    result.get("meta") if isinstance(result.get("meta"), dict) else {}
+                )
 
                 if result.get("success") is False:
-                    raise ApiError(self._extract_error_message(result))
+                    raise self._api_error(response, result)
 
                 payload = result.get("data")
                 if isinstance(payload, (dict, list)):
@@ -72,8 +86,16 @@ class BaseManager:
             return result if isinstance(result, (dict, list)) else {}
         except ApiError:
             raise
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise NetworkError(f"Failed to communicate with Tinker API: {exc}") from exc
+
+    def _api_error(self, response: Any, result: Any) -> ApiError:
+        return ApiError(
+            self._extract_error_message(result),
+            http_status=response.status_code,
+            details=result,
+            headers=getattr(response, "headers", {}),
+        )
 
     @staticmethod
     def _extract_error_message(result: Any) -> str:
@@ -136,3 +158,74 @@ class SubscriptionManager(BaseManager):
         endpoint = f"{endpoints.SUBSCRIPTION_BASE_PATH}/{subscription_id}/cancel"
         response = self._request("POST", endpoint)
         return response if isinstance(response, dict) else {"value": response}
+
+    def checkout(self, request: ManagedCheckout) -> dict[str, Any]:
+        return self._request("POST", "merchant/billing/checkout", request.to_dict())
+
+    def billing_resource(self, resource_id: str) -> dict[str, Any]:
+        return self._request("GET", self._billing_resource_path(resource_id))
+
+    def change_quantity(
+        self, resource_id: str, quantity: int, key: str
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/quantity",
+            {"quantity": quantity, "idempotency_key": key},
+        )
+
+    def schedule_quantity(
+        self, resource_id: str, quantity: int, key: str
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/schedule",
+            {"quantity": quantity, "idempotency_key": key},
+        )
+
+    def clear_scheduled_quantity(self, resource_id: str, key: str) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/unschedule",
+            {"idempotency_key": key},
+        )
+
+    def set_cancel_at_renewal(
+        self, resource_id: str, cancel: bool, key: str
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/cancel",
+            {"cancel": cancel, "idempotency_key": key},
+        )
+
+    def billing_operation(self, key: str) -> dict[str, Any]:
+        return self._request(
+            "GET", "merchant/billing/operations/" + quote(key, safe="")
+        )
+
+    def payment_method_portal(
+        self, resource_id: str, return_url: str, key: str
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/payment-method",
+            {"return_url": return_url, "idempotency_key": key},
+        )
+
+    def billing_payment_history(
+        self, resource_id: str, cursor: str = "", snapshot: int = 0
+    ) -> dict[str, Any]:
+        params = {}
+        if cursor:
+            params["starting_after"] = cursor
+        if snapshot > 0:
+            params["snapshot"] = str(snapshot)
+        endpoint = self._billing_resource_path(resource_id) + "/payment-history"
+        if params:
+            endpoint += "?" + urlencode(params)
+        return self._request("GET", endpoint)
+
+    @staticmethod
+    def _billing_resource_path(resource_id: str) -> str:
+        return "merchant/billing/resources/" + quote(resource_id, safe="")

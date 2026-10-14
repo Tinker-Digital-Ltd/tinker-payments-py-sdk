@@ -20,7 +20,7 @@ class Configuration:
         api_public_key: str,
         api_secret_key: str,
         base_url: str | None = None,
-    ) -> "Configuration":
+    ) -> Configuration:
         resolved_base_url = base_url
         if resolved_base_url is None or not resolved_base_url.strip():
             resolved_base_url = (
