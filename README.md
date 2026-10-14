@@ -190,3 +190,7 @@ credits or reconciling them automatically.
 The dashboard sends a signed `setup.webhook_test` event with `source: "onboarding"`, `data.message`, and setup metadata. Parse it with the webhook handler, verify its signature using the application webhook secret, then acknowledge it with HTTP 200, 202, or 204. Setup events have onboarding data and do not convert to payment transactions. Event classification alone does not authenticate a request. Invalid signatures must be rejected; no payment lookup or fulfillment is needed for a valid setup test.
 
 The signature uses HMAC-SHA256 over the JSON envelope excluding `security`, preserving envelope field order and Go JSON map ordering and escaping.
+
+### Development checks
+
+Install test and lint tooling with `python -m pip install '.[dev]'`. Run `ruff check .` and `python -m unittest discover -s tests -v`. CI runs both on pushes and pull requests, including the minimum supported Python version.
