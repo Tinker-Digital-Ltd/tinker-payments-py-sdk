@@ -1,0 +1,436 @@
+{
+  "contract_version": 1,
+  "base_url": "https://example.test/v1",
+  "payment_id": "payment/a b",
+  "refund_id": "refund/a b",
+  "payout_id": "payout/a b",
+  "cancellation_id": "cancel/a b",
+  "payout_method_id": "method/a &b",
+  "key": "stable-key",
+  "cases": [
+    {
+      "operation": "refund",
+      "method": "POST",
+      "path": "merchant/payment/payment%2Fa%20b/refund",
+      "headers": {
+        "Idempotency-Key": "stable-key"
+      },
+      "body": {
+        "reason": "requested_by_customer",
+        "amount": 100
+      },
+      "status": 201,
+      "response": {
+        "success": true,
+        "data": {
+          "refund": {
+            "id": "refund/a b",
+            "payment_id": "payment/a b",
+            "amount": 100,
+            "currency": "JPY",
+            "reason": "requested_by_customer",
+            "source": "app",
+            "status": "pending_review",
+            "created_at": "2026-10-15T10:00:00Z",
+            "updated_at": "2026-10-15T10:00:00Z",
+            "requested_by_app_id": "app-1"
+          },
+          "payment": {
+            "id": "payment/a b",
+            "status": "success",
+            "amount": 100,
+            "currency": "JPY"
+          },
+          "replayed": false
+        }
+      },
+      "schema": "RefundResult"
+    },
+    {
+      "operation": "refunds",
+      "method": "GET",
+      "path": "merchant/payment/payment%2Fa%20b/refunds",
+      "headers": {},
+      "body": null,
+      "status": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "refunded_amount": 0,
+          "refundable_amount": 100,
+          "refund_capability": {
+            "supported": true,
+            "partial": true,
+            "reasons": [
+              "requested_by_customer",
+              "duplicate",
+              "fraudulent",
+              "other"
+            ],
+            "max_amount": 100,
+            "review_required": true,
+            "execution": "manual"
+          },
+          "refunds": [
+            {
+              "id": "refund/a b",
+              "payment_id": "payment/a b",
+              "amount": 100,
+              "currency": "JPY",
+              "reason": "requested_by_customer",
+              "source": "app",
+              "status": "pending_review",
+              "created_at": "2026-10-15T10:00:00Z",
+              "updated_at": "2026-10-15T10:00:00Z",
+              "requested_by_app_id": "app-1"
+            }
+          ]
+        }
+      },
+      "schema": "RefundHistory"
+    },
+    {
+      "operation": "get_refund",
+      "method": "GET",
+      "path": "merchant/payment/payment%2Fa%20b/refunds/refund%2Fa%20b",
+      "headers": {},
+      "body": null,
+      "status": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "refund/a b",
+          "payment_id": "payment/a b",
+          "amount": 100,
+          "currency": "JPY",
+          "reason": "requested_by_customer",
+          "source": "app",
+          "status": "pending_review",
+          "created_at": "2026-10-15T10:00:00Z",
+          "updated_at": "2026-10-15T10:00:00Z",
+          "requested_by_app_id": "app-1"
+        }
+      },
+      "schema": "Refund"
+    },
+    {
+      "operation": "payout_methods",
+      "method": "GET",
+      "path": "merchant/payout-methods",
+      "headers": {},
+      "body": null,
+      "status": 200,
+      "response": {
+        "success": true,
+        "data": [
+          {
+            "id": "method/a &b",
+            "method_type": "bank",
+            "currency": "JPY",
+            "status": "active",
+            "is_verified": true,
+            "is_default": true,
+            "masked_destination": "****1234"
+          }
+        ]
+      },
+      "schema": null
+    },
+    {
+      "operation": "payout_quote",
+      "method": "GET",
+      "path": "merchant/payouts/quote?payout_method_id=method%2Fa+%26b&amount=100&currency=JPY",
+      "headers": {},
+      "body": null,
+      "status": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "method_type": "bank",
+          "currency": "JPY",
+          "amount": 100,
+          "fee_amount": 2,
+          "net_amount": 98,
+          "fee": {
+            "fixed": 2,
+            "percent": 0,
+            "min": 0,
+            "max": 0
+          },
+          "review_time": "1 business day",
+          "arrival": {
+            "min": 1,
+            "max": 3,
+            "unit": "business_days"
+          },
+          "arrival_text": "1\u20133 business days",
+          "configured": true,
+          "is_estimate": true
+        }
+      },
+      "schema": "PayoutQuote"
+    },
+    {
+      "operation": "request_payout",
+      "method": "POST",
+      "path": "merchant/payouts",
+      "headers": {
+        "Idempotency-Key": "stable-key"
+      },
+      "body": {
+        "payout_method_id": "method/a &b",
+        "amount": 100,
+        "currency": "JPY",
+        "expected_fee_amount": 2
+      },
+      "status": 201,
+      "response": {
+        "success": true,
+        "data": {
+          "withdrawal": {
+            "id": "payout/a b",
+            "account_id": "account-1",
+            "payout_method_id": "method/a &b",
+            "amount": 100,
+            "currency": "JPY",
+            "fee_amount": 2,
+            "net_amount": 98,
+            "status": "pending_approval",
+            "source": "app",
+            "requested_by_app_id": "app-1",
+            "requested_at": "2026-10-15T10:00:00Z",
+            "created_at": "2026-10-15T10:00:00Z",
+            "updated_at": "2026-10-15T10:00:00Z"
+          },
+          "replayed": false
+        }
+      },
+      "schema": "PayoutResult"
+    },
+    {
+      "operation": "payouts",
+      "method": "GET",
+      "path": "merchant/payouts?page=2&per_page=10&status=pending_approval&currency=JPY",
+      "headers": {},
+      "body": null,
+      "status": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "payouts": [
+            {
+              "id": "payout/a b",
+              "account_id": "account-1",
+              "payout_method_id": "method/a &b",
+              "amount": 100,
+              "currency": "JPY",
+              "fee_amount": 2,
+              "net_amount": 98,
+              "status": "pending_approval",
+              "source": "app",
+              "requested_by_app_id": "app-1",
+              "requested_at": "2026-10-15T10:00:00Z",
+              "created_at": "2026-10-15T10:00:00Z",
+              "updated_at": "2026-10-15T10:00:00Z"
+            }
+          ],
+          "pagination": {
+            "page": 2,
+            "per_page": 10,
+            "total": 11,
+            "total_pages": 2
+          }
+        }
+      },
+      "schema": "PayoutPage"
+    },
+    {
+      "operation": "get_payout",
+      "method": "GET",
+      "path": "merchant/payouts/payout%2Fa%20b",
+      "headers": {},
+      "body": null,
+      "status": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "payout/a b",
+          "account_id": "account-1",
+          "payout_method_id": "method/a &b",
+          "amount": 100,
+          "currency": "JPY",
+          "fee_amount": 2,
+          "net_amount": 98,
+          "status": "pending_approval",
+          "source": "app",
+          "requested_by_app_id": "app-1",
+          "requested_at": "2026-10-15T10:00:00Z",
+          "created_at": "2026-10-15T10:00:00Z",
+          "updated_at": "2026-10-15T10:00:00Z"
+        }
+      },
+      "schema": "Payout"
+    },
+    {
+      "operation": "cancel_checkout",
+      "method": "POST",
+      "path": "merchant/payment/payment%2Fa%20b/cancellations",
+      "headers": {
+        "Idempotency-Key": "stable-key"
+      },
+      "body": {
+        "reason": "Customer left checkout"
+      },
+      "status": 202,
+      "response": {
+        "success": true,
+        "data": {
+          "cancellation": {
+            "id": "cancel/a b",
+            "payment_id": "payment/a b",
+            "status": "outcome_unknown",
+            "reason": "Customer left checkout",
+            "reason_code": "provider_outcome_unknown",
+            "source": "app",
+            "requested_by_app_id": "app-1",
+            "created_at": "2026-10-15T10:00:00Z",
+            "updated_at": "2026-10-15T10:00:00Z",
+            "failure_message": "Awaiting provider confirmation"
+          },
+          "replayed": false
+        }
+      },
+      "schema": "CancellationResult"
+    },
+    {
+      "operation": "cancellations",
+      "method": "GET",
+      "path": "merchant/payment/payment%2Fa%20b/cancellations",
+      "headers": {},
+      "body": null,
+      "status": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "cancellations": [
+            {
+              "id": "cancel/a b",
+              "payment_id": "payment/a b",
+              "status": "outcome_unknown",
+              "reason": "Customer left checkout",
+              "reason_code": "provider_outcome_unknown",
+              "source": "app",
+              "requested_by_app_id": "app-1",
+              "created_at": "2026-10-15T10:00:00Z",
+              "updated_at": "2026-10-15T10:00:00Z",
+              "failure_message": "Awaiting provider confirmation"
+            }
+          ],
+          "capability": {
+            "supported": true,
+            "eligible": true,
+            "reason_code": "supported"
+          },
+          "has_more": false
+        }
+      },
+      "schema": "CancellationHistory"
+    },
+    {
+      "operation": "get_cancellation",
+      "method": "GET",
+      "path": "merchant/payment/payment%2Fa%20b/cancellations/cancel%2Fa%20b",
+      "headers": {},
+      "body": null,
+      "status": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "cancel/a b",
+          "payment_id": "payment/a b",
+          "status": "outcome_unknown",
+          "reason": "Customer left checkout",
+          "reason_code": "provider_outcome_unknown",
+          "source": "app",
+          "requested_by_app_id": "app-1",
+          "created_at": "2026-10-15T10:00:00Z",
+          "updated_at": "2026-10-15T10:00:00Z",
+          "failure_message": "Awaiting provider confirmation"
+        }
+      },
+      "schema": "Cancellation"
+    }
+  ],
+  "errors": [
+    {
+      "status": 422,
+      "response": {
+        "success": false,
+        "error": {
+          "code": "CHECKOUT_CANCELLATION_UNSUPPORTED",
+          "message": "Request cannot complete",
+          "details": {
+            "request_id": "unsupported-id",
+            "status": "rejected"
+          }
+        }
+      }
+    },
+    {
+      "status": 409,
+      "response": {
+        "success": false,
+        "error": {
+          "code": "IDEMPOTENCY_KEY_REUSED",
+          "message": "Request cannot complete",
+          "details": {}
+        }
+      }
+    },
+    {
+      "status": 409,
+      "response": {
+        "success": false,
+        "error": {
+          "code": "WITHDRAWAL_FEE_CHANGED",
+          "message": "Request cannot complete",
+          "details": {
+            "quote": {
+              "method_type": "bank",
+              "currency": "JPY",
+              "amount": 100,
+              "fee_amount": 2,
+              "net_amount": 98,
+              "fee": {
+                "fixed": 2,
+                "percent": 0,
+                "min": 0,
+                "max": 0
+              },
+              "review_time": "1 business day",
+              "arrival": {
+                "min": 1,
+                "max": 3,
+                "unit": "business_days"
+              },
+              "arrival_text": "1\u20133 business days",
+              "configured": true,
+              "is_estimate": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "status": 503,
+      "response": {
+        "success": false,
+        "error": {
+          "code": "SERVICE_UNAVAILABLE",
+          "message": "Request cannot complete",
+          "details": {}
+        }
+      }
+    }
+  ]
+}

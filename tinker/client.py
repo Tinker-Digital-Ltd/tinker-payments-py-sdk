@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .api import SubscriptionManager, TransactionManager
+from .api import PayoutManager, SubscriptionManager, TransactionManager
 from .auth import AuthenticationManager
 from .configuration import Configuration
 from .models import ApiMeta
@@ -34,6 +34,7 @@ class TinkerClient:
                 "requests is required unless a custom session is provided"
             )
         self._auth_manager = AuthenticationManager(self._config, self._session)
+        self._payouts: PayoutManager | None = None
         self._transactions: TransactionManager | None = None
         self._subscriptions: SubscriptionManager | None = None
         self._webhooks: WebhookHandler | None = None
@@ -55,6 +56,13 @@ class TinkerClient:
                 self._config, self._auth_manager, self._session
             )
         return self._subscriptions
+
+    def payouts(self) -> PayoutManager:
+        if self._payouts is None:
+            self._payouts = PayoutManager(
+                self._config, self._auth_manager, self._session
+            )
+        return self._payouts
 
     def webhooks(self) -> WebhookHandler:
         if self._webhooks is None:

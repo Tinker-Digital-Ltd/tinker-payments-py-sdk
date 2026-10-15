@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
+import math
+from typing import Any, cast
 from urllib.parse import quote, urlencode
 
 from . import endpoints
+from . import lifecycle as lc
 from .auth import AuthenticationManager
 from .configuration import Configuration
 from .exceptions import ApiError, NetworkError
+from .lifecycle_helpers import idempotency_headers, payment_path, positive_amount
 from .managed_checkout import ManagedCheckout
 from .models import ApiMeta, Transaction
 
@@ -42,7 +45,11 @@ class BaseManager:
         return self._last_meta
 
     def _request(
-        self, method: str, endpoint: str, data: dict[str, Any] | None = None
+        self,
+        method: str,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Any:
         base_url = self._config.base_url.rstrip("/")
         url = f"{base_url}/{endpoint.lstrip('/')}"
@@ -56,6 +63,7 @@ class BaseManager:
                     "Authorization": f"Bearer {token}",
                     "Accept": "application/json",
                     "Content-Type": "application/json",
+                    **(headers or {}),
                 },
                 json=data if data else None,
                 timeout=30,
@@ -121,6 +129,106 @@ class TransactionManager(BaseManager):
         if not isinstance(response, dict):
             response = {"value": response}
         return Transaction.from_dict(response)
+
+    def refund(
+        self, payment_id: str, payload: lc.RefundRequest, key: str
+    ) -> lc.RefundResult:
+        if "amount" in payload:
+            positive_amount(payload["amount"])
+        return cast(
+            lc.RefundResult,
+            self._request(
+                "POST",
+                payment_path(payment_id) + "/refund",
+                dict(payload),
+                idempotency_headers(key),
+            ),
+        )
+
+    def refunds(self, payment_id: str) -> lc.RefundHistory:
+        return cast(
+            lc.RefundHistory,
+            self._request("GET", payment_path(payment_id) + "/refunds"),
+        )
+
+    def get_refund(self, payment_id: str, refund_id: str) -> lc.Refund:
+        return cast(
+            lc.Refund,
+            self._request(
+                "GET",
+                payment_path(payment_id) + "/refunds/" + quote(refund_id, safe=""),
+            ),
+        )
+
+    def cancel_checkout(
+        self, payment_id: str, payload: lc.CancellationRequest, key: str
+    ) -> lc.CancellationResult:
+        return cast(
+            lc.CancellationResult,
+            self._request(
+                "POST",
+                payment_path(payment_id) + "/cancellations",
+                dict(payload),
+                idempotency_headers(key),
+            ),
+        )
+
+    def cancellations(self, payment_id: str) -> lc.CancellationHistory:
+        return cast(
+            lc.CancellationHistory,
+            self._request("GET", payment_path(payment_id) + "/cancellations"),
+        )
+
+    def get_cancellation(self, payment_id: str, request_id: str) -> lc.Cancellation:
+        return cast(
+            lc.Cancellation,
+            self._request(
+                "GET",
+                payment_path(payment_id)
+                + "/cancellations/"
+                + quote(request_id, safe=""),
+            ),
+        )
+
+
+class PayoutManager(BaseManager):
+    """Merchant wallet withdrawals to the merchant's verified destinations."""
+
+    def methods(self) -> list[lc.PayoutMethod]:
+        return cast(
+            list[lc.PayoutMethod], self._request("GET", "merchant/payout-methods")
+        )
+
+    def quote(self, payload: lc.PayoutQuoteRequest) -> lc.PayoutQuote:
+        positive_amount(payload["amount"])
+        return cast(
+            lc.PayoutQuote,
+            self._request("GET", "merchant/payouts/quote?" + urlencode(payload)),
+        )
+
+    def request_payout(self, payload: lc.PayoutRequest, key: str) -> lc.PayoutResult:
+        positive_amount(payload["amount"])
+        if (
+            not math.isfinite(payload["expected_fee_amount"])
+            or payload["expected_fee_amount"] < 0
+        ):
+            raise ValueError("expected_fee_amount must be finite and non-negative")
+        return cast(
+            lc.PayoutResult,
+            self._request(
+                "POST", "merchant/payouts", dict(payload), idempotency_headers(key)
+            ),
+        )
+
+    def list(self, filters: lc.PayoutFilters | None = None) -> lc.PayoutPage:
+        query = "?" + urlencode(filters) if filters else ""
+        return cast(lc.PayoutPage, self._request("GET", "merchant/payouts" + query))
+
+    def get(self, payout_id: str) -> lc.Payout:
+        return cast(
+            lc.Payout,
+            self._request("GET", "merchant/payouts/" + quote(payout_id, safe="")),
+        )
 
 
 class SubscriptionManager(BaseManager):

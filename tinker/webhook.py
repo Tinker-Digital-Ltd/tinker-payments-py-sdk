@@ -6,9 +6,10 @@ import hashlib
 import hmac
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from .exceptions import InvalidPayloadError
+from .lifecycle import Cancellation
 from .models import Transaction
 
 
@@ -32,6 +33,18 @@ class OnboardingEventData:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> OnboardingEventData:
         return cls(message=str(data.get("message", "")))
+
+
+@dataclass(frozen=True)
+class CheckoutCancellationEventData:
+    cancellation: Cancellation
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CheckoutCancellationEventData:
+        cancellation = data.get("cancellation")
+        if not isinstance(cancellation, dict):
+            raise InvalidPayloadError("Missing cancellation in webhook")
+        return cls(cast(Cancellation, cancellation))
 
 
 @dataclass(frozen=True)
@@ -162,7 +175,8 @@ class WebhookEvent:
     source: str
     timestamp: str
     data: (
-        PaymentEventData
+        CheckoutCancellationEventData
+        | PaymentEventData
         | SubscriptionEventData
         | InvoiceEventData
         | SettlementEventData
@@ -181,14 +195,20 @@ class WebhookEvent:
         raw_data = data_input if isinstance(data_input, dict) else {}
         raw_meta = meta_input if isinstance(meta_input, dict) else {}
         event_data: (
-            PaymentEventData
+            CheckoutCancellationEventData
+            | PaymentEventData
             | SubscriptionEventData
             | InvoiceEventData
             | SettlementEventData
             | OnboardingEventData
         )
 
-        if source == "onboarding":
+        if (
+            source == "payment"
+            and payload.get("type") == "checkout.cancellation.updated.v1"
+        ):
+            event_data = CheckoutCancellationEventData.from_dict(raw_data)
+        elif source == "onboarding":
             event_data = OnboardingEventData.from_dict(raw_data)
         elif source == "payment":
             event_data = PaymentEventData.from_dict(raw_data)
@@ -223,6 +243,11 @@ class WebhookEvent:
             ),
             raw_data=raw_data,
             raw_meta=raw_meta,
+        )
+
+    def is_checkout_cancellation(self) -> bool:
+        return (
+            self.source == "payment" and self.type == "checkout.cancellation.updated.v1"
         )
 
     def is_onboarding_event(self) -> bool:
@@ -281,7 +306,9 @@ class WebhookHandler:
 
         event = payload if isinstance(payload, WebhookEvent) else self.handle(payload)
         signature = event.security.signature
-        if event.security.algorithm != "HMAC-SHA256" or not signature.startswith("sha256="):
+        if event.security.algorithm != "HMAC-SHA256" or not signature.startswith(
+            "sha256="
+        ):
             return False
 
         payload_without_security = {
@@ -308,7 +335,6 @@ class WebhookHandler:
         )
 
         return hmac.compare_digest(signature, computed)
-
 
     def _sort_maps(self, value: Any) -> Any:
         if isinstance(value, dict):
