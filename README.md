@@ -113,8 +113,6 @@ remains uncertain.
 
 ## Managed recurring billing
 
-Requires a Tinker server with the managed-billing, payment-method and payment-history
-endpoints enabled. Installing the SDK does not deploy or enable those endpoints.
 Existing plan-based subscription methods remain available.
 
 Checkout uses exact integer minor-unit prices (for example, `15000` means EUR 150.00),
@@ -197,7 +195,7 @@ Install test and lint tooling with `python -m pip install '.[dev]'`. Run `ruff c
 
 ## Refunds, wallet withdrawals and checkout cancellation
 
-These APIs require the merchant lifecycle backend routes under `/v1/merchant` to be deployed. SDK package releases must follow backend deployment and verified sandbox parity. Existing apps need the owner to enable withdrawal requests in app settings.
+Existing apps need the owner to enable withdrawal requests in app settings.
 
 `payouts` means a withdrawal from the merchant's wallet to its own active, verified payout method. Amounts use currency units: withdrawing JPY 100 with a fee of 2 reserves 100 and pays 98. Obtain a quote and pass its `fee_amount` as `expected_fee_amount`; a fee conflict includes a refreshed quote in the structured API error. No method accepts arbitrary recipient banking details.
 
