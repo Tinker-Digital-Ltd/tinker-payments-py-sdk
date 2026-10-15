@@ -147,9 +147,40 @@ class CancellationWebhookTests(unittest.TestCase):
         event = handler.handle(raw)
         self.assertTrue(event.is_checkout_cancellation())
         self.assertIsInstance(event.data, CheckoutCancellationEventData)
-        self.assertEqual(event.data.cancellation["status"], "outcome_unknown")
+        self.assertEqual(event.data.resource["status"], "outcome_unknown")
         self.assertIsNone(event.to_transaction())
         self.assertTrue(handler.verify_signature(event, "webhook-secret"))
         self.assertFalse(handler.verify_signature(event, "wrong-secret"))
         changed = handler.handle(raw.replace("outcome_unknown", "cancelled", 1))
         self.assertFalse(handler.verify_signature(changed, "webhook-secret"))
+
+    def test_refund_and_withdrawal_updates(self):
+        from tinker.webhook import RefundEventData, WithdrawalEventData
+
+        handler = TinkerClient("public", "secret", session=BillingSession()).webhooks()
+        for name, expected_type in [
+            ("refund", RefundEventData),
+            ("withdrawal", WithdrawalEventData),
+        ]:
+            raw = (Path(__file__).parent / f"fixtures/{name}-webhook.json").read_text()
+            canonical = (
+                Path(__file__).parents[2]
+                / f"tinker-payments-openapi/fixtures/{name}-webhook.json"
+            )
+            if canonical.exists():
+                self.assertEqual(json.loads(raw), json.loads(canonical.read_text()))
+            event = handler.handle(raw)
+            self.assertIsInstance(event.data, expected_type)
+            self.assertIsNone(event.to_transaction())
+            self.assertIsNone(
+                handler.handle(
+                    raw.replace(".updated.v1", ".updated.v2")
+                ).to_transaction()
+            )
+            self.assertTrue(handler.verify_signature(event, "webhook-secret"))
+            self.assertFalse(handler.verify_signature(event, "wrong-secret"))
+            self.assertFalse(
+                handler.verify_signature(
+                    handler.handle(raw.replace("pending_", "forged_")), "webhook-secret"
+                )
+            )

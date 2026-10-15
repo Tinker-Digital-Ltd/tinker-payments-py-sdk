@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from .exceptions import InvalidPayloadError
-from .lifecycle import Cancellation
+from .lifecycle import Cancellation, Payout, Refund
 from .models import Transaction
 
 
@@ -35,16 +35,38 @@ class OnboardingEventData:
         return cls(message=str(data.get("message", "")))
 
 
+def lifecycle_resource(data: dict[str, Any]) -> dict[str, Any]:
+    resource = data.get("resource")
+    if not isinstance(resource, dict):
+        raise InvalidPayloadError("Missing resource in lifecycle webhook")
+    return resource
+
+
+@dataclass(frozen=True)
+class RefundEventData:
+    resource: Refund
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RefundEventData:
+        return cls(cast(Refund, lifecycle_resource(data)))
+
+
+@dataclass(frozen=True)
+class WithdrawalEventData:
+    resource: Payout
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> WithdrawalEventData:
+        return cls(cast(Payout, lifecycle_resource(data)))
+
+
 @dataclass(frozen=True)
 class CheckoutCancellationEventData:
-    cancellation: Cancellation
+    resource: Cancellation
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CheckoutCancellationEventData:
-        cancellation = data.get("cancellation")
-        if not isinstance(cancellation, dict):
-            raise InvalidPayloadError("Missing cancellation in webhook")
-        return cls(cast(Cancellation, cancellation))
+        return cls(cast(Cancellation, lifecycle_resource(data)))
 
 
 @dataclass(frozen=True)
@@ -175,7 +197,9 @@ class WebhookEvent:
     source: str
     timestamp: str
     data: (
-        CheckoutCancellationEventData
+        RefundEventData
+        | WithdrawalEventData
+        | CheckoutCancellationEventData
         | PaymentEventData
         | SubscriptionEventData
         | InvoiceEventData
@@ -195,7 +219,9 @@ class WebhookEvent:
         raw_data = data_input if isinstance(data_input, dict) else {}
         raw_meta = meta_input if isinstance(meta_input, dict) else {}
         event_data: (
-            CheckoutCancellationEventData
+            RefundEventData
+            | WithdrawalEventData
+            | CheckoutCancellationEventData
             | PaymentEventData
             | SubscriptionEventData
             | InvoiceEventData
@@ -203,11 +229,18 @@ class WebhookEvent:
             | OnboardingEventData
         )
 
-        if (
-            source == "payment"
-            and payload.get("type") == "checkout.cancellation.updated.v1"
+        if source == "payment" and str(payload.get("type", "")).startswith(
+            "checkout.cancellation.updated."
         ):
             event_data = CheckoutCancellationEventData.from_dict(raw_data)
+        elif source == "payment" and str(payload.get("type", "")).startswith(
+            "refund.updated."
+        ):
+            event_data = RefundEventData.from_dict(raw_data)
+        elif source == "payment" and str(payload.get("type", "")).startswith(
+            "withdrawal.updated."
+        ):
+            event_data = WithdrawalEventData.from_dict(raw_data)
         elif source == "onboarding":
             event_data = OnboardingEventData.from_dict(raw_data)
         elif source == "payment":
@@ -246,8 +279,8 @@ class WebhookEvent:
         )
 
     def is_checkout_cancellation(self) -> bool:
-        return (
-            self.source == "payment" and self.type == "checkout.cancellation.updated.v1"
+        return self.source == "payment" and self.type.startswith(
+            "checkout.cancellation.updated."
         )
 
     def is_onboarding_event(self) -> bool:

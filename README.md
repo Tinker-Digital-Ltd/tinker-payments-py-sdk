@@ -207,7 +207,7 @@ A refund's `pending_review`/`approved` state and a payout's `pending_approval`/`
 
 Refund history includes refundable amounts and `refund_capability`. Cancellation history includes `capability`, the newest 100 requests and `has_more`; retrieve older known requests by ID. Payout listing accepts `page`, `per_page` (maximum 100), `status` and `currency`. Reads are scoped to the app; payout reads show only requests attributed to that app.
 
-The signed event `checkout.cancellation.updated.v1` has source `payment` and `data.cancellation`. Verify its signature before using its typed cancellation data. It never converts to a payment transaction. Events can arrive late or more than once; polling remains available.
+The signed events `refund.updated.v1`, `withdrawal.updated.v1` and `checkout.cancellation.updated.v1` have source `payment` and typed `data.resource`. Verify its signature before using its typed cancellation data. It never converts to a payment transaction. Events can arrive late or more than once; polling remains available.
 
 ```python
 tx = client.transactions()
