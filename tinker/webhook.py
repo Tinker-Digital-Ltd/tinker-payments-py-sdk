@@ -6,9 +6,10 @@ import hashlib
 import hmac
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from .exceptions import InvalidPayloadError
+from .lifecycle import Cancellation, Payout, Refund
 from .models import Transaction
 
 
@@ -32,6 +33,40 @@ class OnboardingEventData:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> OnboardingEventData:
         return cls(message=str(data.get("message", "")))
+
+
+def lifecycle_resource(data: dict[str, Any]) -> dict[str, Any]:
+    resource = data.get("resource")
+    if not isinstance(resource, dict):
+        raise InvalidPayloadError("Missing resource in lifecycle webhook")
+    return resource
+
+
+@dataclass(frozen=True)
+class RefundEventData:
+    resource: Refund
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RefundEventData:
+        return cls(cast(Refund, lifecycle_resource(data)))
+
+
+@dataclass(frozen=True)
+class WithdrawalEventData:
+    resource: Payout
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> WithdrawalEventData:
+        return cls(cast(Payout, lifecycle_resource(data)))
+
+
+@dataclass(frozen=True)
+class CheckoutCancellationEventData:
+    resource: Cancellation
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CheckoutCancellationEventData:
+        return cls(cast(Cancellation, lifecycle_resource(data)))
 
 
 @dataclass(frozen=True)
@@ -162,7 +197,10 @@ class WebhookEvent:
     source: str
     timestamp: str
     data: (
-        PaymentEventData
+        RefundEventData
+        | WithdrawalEventData
+        | CheckoutCancellationEventData
+        | PaymentEventData
         | SubscriptionEventData
         | InvoiceEventData
         | SettlementEventData
@@ -181,14 +219,29 @@ class WebhookEvent:
         raw_data = data_input if isinstance(data_input, dict) else {}
         raw_meta = meta_input if isinstance(meta_input, dict) else {}
         event_data: (
-            PaymentEventData
+            RefundEventData
+            | WithdrawalEventData
+            | CheckoutCancellationEventData
+            | PaymentEventData
             | SubscriptionEventData
             | InvoiceEventData
             | SettlementEventData
             | OnboardingEventData
         )
 
-        if source == "onboarding":
+        if source == "payment" and str(payload.get("type", "")).startswith(
+            "checkout.cancellation.updated."
+        ):
+            event_data = CheckoutCancellationEventData.from_dict(raw_data)
+        elif source == "payment" and str(payload.get("type", "")).startswith(
+            "refund.updated."
+        ):
+            event_data = RefundEventData.from_dict(raw_data)
+        elif source == "payment" and str(payload.get("type", "")).startswith(
+            "withdrawal.updated."
+        ):
+            event_data = WithdrawalEventData.from_dict(raw_data)
+        elif source == "onboarding":
             event_data = OnboardingEventData.from_dict(raw_data)
         elif source == "payment":
             event_data = PaymentEventData.from_dict(raw_data)
@@ -223,6 +276,11 @@ class WebhookEvent:
             ),
             raw_data=raw_data,
             raw_meta=raw_meta,
+        )
+
+    def is_checkout_cancellation(self) -> bool:
+        return self.source == "payment" and self.type.startswith(
+            "checkout.cancellation.updated."
         )
 
     def is_onboarding_event(self) -> bool:
@@ -281,7 +339,9 @@ class WebhookHandler:
 
         event = payload if isinstance(payload, WebhookEvent) else self.handle(payload)
         signature = event.security.signature
-        if event.security.algorithm != "HMAC-SHA256" or not signature.startswith("sha256="):
+        if event.security.algorithm != "HMAC-SHA256" or not signature.startswith(
+            "sha256="
+        ):
             return False
 
         payload_without_security = {
@@ -308,7 +368,6 @@ class WebhookHandler:
         )
 
         return hmac.compare_digest(signature, computed)
-
 
     def _sort_maps(self, value: Any) -> Any:
         if isinstance(value, dict):
