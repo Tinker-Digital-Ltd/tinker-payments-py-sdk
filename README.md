@@ -194,3 +194,36 @@ The signature uses HMAC-SHA256 over the JSON envelope excluding `security`, pres
 ### Development checks
 
 Install test and lint tooling with `python -m pip install '.[dev]'`. Run `ruff check .` and `python -m unittest discover -s tests -v`. CI runs both on pushes and pull requests, including the minimum supported Python version.
+
+## Refunds, wallet withdrawals and checkout cancellation
+
+These APIs require the merchant lifecycle backend routes under `/v1/merchant` to be deployed. SDK package releases must follow backend deployment and verified sandbox parity. Existing apps need the owner to enable withdrawal requests in app settings.
+
+`payouts` means a withdrawal from the merchant's wallet to its own active, verified payout method. Amounts use currency units: withdrawing JPY 100 with a fee of 2 reserves 100 and pays 98. Obtain a quote and pass its `fee_amount` as `expected_fee_amount`; a fee conflict includes a refreshed quote in the structured API error. No method accepts arbitrary recipient banking details.
+
+Supply a stable `Idempotency-Key` for every refund, payout or cancellation request. Keys are trimmed and must be 1–255 UTF-8 bytes. Reuse the same key and semantic request after transport failures; a changed request conflicts. A replay returns the original resource and fee snapshot. Start a new key for a new intended operation.
+
+A refund's `pending_review`/`approved` state and a payout's `pending_approval`/`approved` state mean review is outstanding. Only `refunded`, `paid` or provider-confirmed `cancelled` establishes completion. Preserve cancellation `outcome_unknown` and poll by ID; do not blindly submit another request. Unsupported cancellation raises HTTP 422 `CHECKOUT_CANCELLATION_UNSUPPORTED` and retains the persisted `request_id`/`status` in error details. Lifecycle conflicts use HTTP 409; replaying a persisted rejection retains its 422/409 result.
+
+Refund history includes refundable amounts and `refund_capability`. Cancellation history includes `capability`, the newest 100 requests and `has_more`; retrieve older known requests by ID. Payout listing accepts `page`, `per_page` (maximum 100), `status` and `currency`. Reads are scoped to the app; payout reads show only requests attributed to that app.
+
+The signed event `checkout.cancellation.updated.v1` has source `payment` and `data.cancellation`. Verify its signature before using its typed cancellation data. It never converts to a payment transaction. Events can arrive late or more than once; polling remains available.
+
+```python
+tx = client.transactions()
+review = tx.refund(payment_id, {"reason": "requested_by_customer", "amount": 100}, "refund-order-42")
+print(review["refund"]["status"])
+payouts = client.payouts()
+destinations = payouts.methods()
+destination = next(method for method in destinations if method["status"] == "active" and method["is_verified"])
+quote = payouts.quote({"payout_method_id": destination["id"], "amount": 100, "currency": destination["currency"]})
+requested = payouts.request_payout({"payout_method_id": destination["id"], "amount": 100, "currency": destination["currency"], "expected_fee_amount": quote["fee_amount"]}, "withdrawal-42")
+print(payouts.get(requested["withdrawal"]["id"])["status"])
+try:
+    result = tx.cancel_checkout(unpaid_payment_id, {"reason": "Customer left checkout"}, "cancel-order-42")
+    print(tx.get_cancellation(unpaid_payment_id, result["cancellation"]["id"])["status"])
+except ApiError as error:  # from tinker.exceptions import ApiError
+    print(error.error_code, error.details)
+```
+
+`transactions()` also exposes `refunds`, `get_refund` and `cancellations`; `payouts().list()` accepts typed pagination filters. The public `tinker.lifecycle` module provides TypedDict request/result/resource schemas and Literal status/reason types. Client stubs expose the new manager; `ApiError.details` retains the complete response envelope and nested `error.details`.
