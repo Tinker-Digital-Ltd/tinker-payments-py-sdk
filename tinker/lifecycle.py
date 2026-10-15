@@ -192,6 +192,7 @@ class _CancellationRequired(TypedDict):
 
 
 class Cancellation(_CancellationRequired, total=False):
+    payment_conflict: bool
     requested_by_app_id: str
     completed_at: str
     failure_message: str

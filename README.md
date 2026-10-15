@@ -227,3 +227,5 @@ except ApiError as error:  # from tinker.exceptions import ApiError
 ```
 
 `transactions()` also exposes `refunds`, `get_refund` and `cancellations`; `payouts().list()` accepts typed pagination filters. The public `tinker.lifecycle` module provides TypedDict request/result/resource schemas and Literal status/reason types. Client stubs expose the new manager; `ApiError.details` retains the complete response envelope and nested `error.details`.
+
+Cancellation resources expose `payment_conflict` when later successful payment evidence conflicts with expiry. Treat successful payment as authoritative and use the refund workflow where appropriate.
