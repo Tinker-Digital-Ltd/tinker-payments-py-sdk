@@ -1,5 +1,6 @@
 import unittest
 from dataclasses import replace
+from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlsplit
 
 from test_sdk import FakeResponse, FakeSession
@@ -70,6 +71,14 @@ class ManagedBillingTests(unittest.TestCase):
         trial = replace(checkout, trial_days=14)
         self.assertEqual(trial.to_dict()["trial_days"], 14)
         m.checkout(trial)
+        end = datetime.fromtimestamp(1900000000, timezone.utc)
+        dated = replace(checkout, trial_end=end)
+        self.assertEqual(dated.to_dict()["trial_end"], 1900000000)
+        with self.assertRaises(ValueError):
+            replace(checkout, trial_end=datetime(2030, 1, 1)).to_dict()
+        m.checkout(dated)
+        m.set_trial_end("sub/a b", end, "trial-end-key")
+        m.end_trial("sub/a b", "end-trial-key")
         m.billing_resource("sub/a b")
         m.change_quantity("sub/a b", 4, "change-key")
         m.schedule_quantity("sub/a b", 2, "schedule-key")
@@ -84,6 +93,13 @@ class ManagedBillingTests(unittest.TestCase):
         expected = [
             ("POST", "/v1/merchant/billing/checkout", checkout.to_dict()),
             ("POST", "/v1/merchant/billing/checkout", trial.to_dict()),
+            ("POST", "/v1/merchant/billing/checkout", dated.to_dict()),
+            (
+                "POST",
+                base + "/trial-end",
+                {"trial_end": 1900000000, "idempotency_key": "trial-end-key"},
+            ),
+            ("POST", base + "/end-trial", {"idempotency_key": "end-trial-key"}),
             ("GET", base, None),
             (
                 "POST",
