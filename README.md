@@ -84,6 +84,8 @@ Checkout uses exact integer minor-unit prices (`15000` = EUR 150.00), a `month` 
 | `schedule_quantity` | Schedule a quantity change |
 | `clear_scheduled_quantity` | Remove a scheduled quantity change |
 | `set_cancel_at_renewal` | Set cancellation at renewal; pass false to clear it |
+| `set_trial_end` | Move the next charge to a new trial end |
+| `end_trial` | End a trial now and charge the full period |
 | `billing_operation` | Recover the durable result by idempotency key |
 | `payment_method_portal` | Create a short-lived hosted payment-method link |
 | `billing_payment_history` | Read one page of captured payments and adjustments |
@@ -110,7 +112,7 @@ floating-point prices. `ManagedCheckout` is an exported dataclass.
 
 ### Trials with a required payment method
 
-Set `trial_days` (1 to 30) to collect a card at checkout and charge first when the trial ends. The SDK sends `trial_days` only when it is above 0, so checkouts without a trial keep working against servers released before trial support. A gateway without trial support returns HTTP 422 `TRIAL_UNSUPPORTED` with `outcome: not_applied`. Limiting a customer to one trial is the app's responsibility.
+Set `trial_days` (1 to 730) or an exact `trial_end` (timezone-aware `datetime`, 48 hours to 730 days ahead; cannot be combined with `trial_days`) to collect a card at checkout and charge first when the trial ends. The SDK sends `trial_days` only when it is above 0 and `trial_end` only when set, so checkouts without a trial keep working against servers released before trial support. A gateway without trial support returns HTTP 422 `TRIAL_UNSUPPORTED` with `outcome: not_applied`. Limiting a customer to one trial is the app's responsibility.
 
 ```python
 billing.checkout(ManagedCheckout(
@@ -120,6 +122,19 @@ billing.checkout(ManagedCheckout(
     trial_days=14,
 ))
 ```
+
+#### Changing the trial end
+
+`set_trial_end(resource_id, end, key)` moves the next charge to `end` (1 hour to 730 days ahead). A trialing subscription can move earlier or later; a paid (`active`) subscription only to a time on or after `current_period_end`, and it then becomes `trialing` with nothing charged. Clear scheduled seat changes first. `end_trial(resource_id, key)` ends a trial now and charges the full period immediately; if the charge fails the subscription becomes `past_due`. State-dependent rejections return HTTP 502 `BILLING_GATEWAY_ERROR` with `outcome: not_applied`.
+
+```python
+from datetime import datetime, timedelta, timezone
+
+billing.set_trial_end("resource-id", datetime.now(timezone.utc) + timedelta(days=30), "trial-end-1")
+billing.end_trial("resource-id", "end-trial-1")
+```
+
+Ending a trial early sends `invoice.paid` and `payment.updated` (not `subscription.renewed`). Extending a paid subscription produces a €0 `invoice.paid`.
 
 Checkout and billing resource responses include a provider-neutral `managed_state` map: `status` (`pending`, `trialing`, `active`, `past_due`, `paused` or `canceled`), `trial_ends_at`, `current_period_end` and `cancel_at_period_end`. Read it instead of raw provider fields; grant access while `status` is `trialing` or `active` and `current_period_end` is in the future. Managed subscription webhooks carry `billing_status` and `trial_ends_at`, and `subscription.trial_will_end` arrives up to three days before the trial ends. The trial's €0 invoice sends `invoice.paid` with amount 0 and is not a payment.
 

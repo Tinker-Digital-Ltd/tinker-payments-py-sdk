@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from typing import Any, cast
 from urllib.parse import quote, urlencode
 
@@ -12,7 +13,7 @@ from .auth import AuthenticationManager
 from .configuration import Configuration
 from .exceptions import ApiError, NetworkError
 from .lifecycle_helpers import idempotency_headers, payment_path, positive_amount
-from .managed_checkout import ManagedCheckout
+from .managed_checkout import ManagedCheckout, unix_seconds
 from .models import ApiMeta, Transaction
 
 requests: Any
@@ -305,6 +306,22 @@ class SubscriptionManager(BaseManager):
             "POST",
             self._billing_resource_path(resource_id) + "/cancel",
             {"cancel": cancel, "idempotency_key": key},
+        )
+
+    def set_trial_end(
+        self, resource_id: str, end: datetime, key: str
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/trial-end",
+            {"trial_end": unix_seconds(end), "idempotency_key": key},
+        )
+
+    def end_trial(self, resource_id: str, key: str) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            self._billing_resource_path(resource_id) + "/end-trial",
+            {"idempotency_key": key},
         )
 
     def billing_operation(self, key: str) -> dict[str, Any]:
