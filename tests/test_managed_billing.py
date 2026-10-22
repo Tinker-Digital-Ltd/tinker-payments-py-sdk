@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 from urllib.parse import parse_qs, urlsplit
 
 from test_sdk import FakeResponse, FakeSession
@@ -64,7 +65,11 @@ class ManagedBillingTests(unittest.TestCase):
                 "idempotency_key": "checkout-key",
             },
         )
+        self.assertNotIn("trial_days", checkout.to_dict())
         m.checkout(checkout)
+        trial = replace(checkout, trial_days=14)
+        self.assertEqual(trial.to_dict()["trial_days"], 14)
+        m.checkout(trial)
         m.billing_resource("sub/a b")
         m.change_quantity("sub/a b", 4, "change-key")
         m.schedule_quantity("sub/a b", 2, "schedule-key")
@@ -78,6 +83,7 @@ class ManagedBillingTests(unittest.TestCase):
         base = "/v1/merchant/billing/resources/sub%2Fa%20b"
         expected = [
             ("POST", "/v1/merchant/billing/checkout", checkout.to_dict()),
+            ("POST", "/v1/merchant/billing/checkout", trial.to_dict()),
             ("GET", base, None),
             (
                 "POST",
