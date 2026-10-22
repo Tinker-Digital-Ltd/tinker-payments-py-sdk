@@ -79,6 +79,7 @@ Checkout uses exact integer minor-unit prices (`15000` = EUR 150.00), a `month` 
 | Method | Purpose |
 |---|---|
 | `checkout` | Create an exact-price recurring checkout |
+| `expire_checkout` | Expire an abandoned checkout |
 | `billing_resource` | Read a managed billing resource |
 | `change_quantity` | Change the current quantity |
 | `schedule_quantity` | Schedule a quantity change |
@@ -109,6 +110,14 @@ operation = billing.billing_operation("quantity-123")
 
 Pass integers for minor-unit amounts, quantities and snapshots; do not convert through
 floating-point prices. `ManagedCheckout` is an exported dataclass.
+
+### Expiring an abandoned checkout
+
+An abandoned checkout link can still be completed later and create a second subscription. `expire_checkout(id, key)` expires an open checkout so it can no longer be paid. It has three outcomes: an open checkout becomes expired (`status: "expired"`, `managed_state.status: "canceled"`); an already expired checkout is returned unchanged, so retrying is safe; a completed checkout returns HTTP 409 `CHECKOUT_COMPLETED` with `outcome: not_applied`, in which case read the checkout with `billing_resource` and use its subscription. A non-checkout ID returns HTTP 400 `INVALID_ID`. An expired checkout sends no `subscription.cancelled` webhook.
+
+```python
+billing.expire_checkout("checkout-id", "expire-checkout-1")
+```
 
 ### Trials with a required payment method
 

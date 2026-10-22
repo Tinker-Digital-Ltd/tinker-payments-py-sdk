@@ -271,6 +271,13 @@ class SubscriptionManager(BaseManager):
     def checkout(self, request: ManagedCheckout) -> dict[str, Any]:
         return self._request("POST", "merchant/billing/checkout", request.to_dict())
 
+    def expire_checkout(self, checkout_id: str, key: str) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "merchant/billing/checkout/" + quote(checkout_id, safe="") + "/expire",
+            {"idempotency_key": key},
+        )
+
     def billing_resource(self, resource_id: str) -> dict[str, Any]:
         return self._request("GET", self._billing_resource_path(resource_id))
 
