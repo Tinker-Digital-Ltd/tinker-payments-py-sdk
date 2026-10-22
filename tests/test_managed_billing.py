@@ -77,6 +77,7 @@ class ManagedBillingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             replace(checkout, trial_end=datetime(2030, 1, 1)).to_dict()
         m.checkout(dated)
+        m.expire_checkout("cs/a b", "expire-key")
         m.set_trial_end("sub/a b", end, "trial-end-key")
         m.end_trial("sub/a b", "end-trial-key")
         m.billing_resource("sub/a b")
@@ -94,6 +95,11 @@ class ManagedBillingTests(unittest.TestCase):
             ("POST", "/v1/merchant/billing/checkout", checkout.to_dict()),
             ("POST", "/v1/merchant/billing/checkout", trial.to_dict()),
             ("POST", "/v1/merchant/billing/checkout", dated.to_dict()),
+            (
+                "POST",
+                "/v1/merchant/billing/checkout/cs%2Fa%20b/expire",
+                {"idempotency_key": "expire-key"},
+            ),
             (
                 "POST",
                 base + "/trial-end",
