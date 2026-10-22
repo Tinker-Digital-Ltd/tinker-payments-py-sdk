@@ -15,6 +15,10 @@ class ManagedCheckout:
     interval: str
     return_url: str
     idempotency_key: str
+    trial_days: int = 0
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        body = asdict(self)
+        if self.trial_days <= 0:
+            del body["trial_days"]
+        return body

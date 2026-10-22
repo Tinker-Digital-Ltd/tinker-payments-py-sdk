@@ -106,6 +106,8 @@ class SubscriptionEventData:
     cancelled_at: str | None
     paused_at: str | None
     reactivated_at: str | None
+    billing_status: str | None = None
+    trial_ends_at: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SubscriptionEventData:
@@ -132,6 +134,12 @@ class SubscriptionEventData:
             else None,
             reactivated_at=str(data["reactivated_at"])
             if data.get("reactivated_at") is not None
+            else None,
+            billing_status=str(data["billing_status"])
+            if data.get("billing_status") is not None
+            else None,
+            trial_ends_at=str(data["trial_ends_at"])
+            if data.get("trial_ends_at") is not None
             else None,
         )
 
