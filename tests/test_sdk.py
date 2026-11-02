@@ -67,6 +67,33 @@ class SdkTests(unittest.TestCase):
         self.assertEqual(meta.request_id, "5b5b3526-8dc1-4f7b-9bb8-cdbfc8df4984")
         self.assertEqual(meta.environment, "sandbox")
 
+    def test_wallet_payment_method_and_client_secret(self):
+        session = FakeSession()
+        session.request = lambda method, url, headers=None, json=None, timeout=None: (
+            session.calls.append((method, url, json))
+            or FakeResponse(
+                200,
+                {
+                    "success": True,
+                    "data": {
+                        "paymentReference": "pi_123",
+                        "status": "pending",
+                        "authorizationUrl": None,
+                        "clientSecret": "pi_123_secret_abc",
+                        "publishableKey": "pk_test_stripe",
+                    },
+                    "meta": {},
+                },
+            )
+        )
+        client = TinkerClient("pk_test_123", "sk_test_123", session=session)
+        transaction = client.transactions().initiate(
+            {"amount": 100, "currency": "USD", "gateway": "stripe", "paymentMethod": "apple_pay"}
+        )
+        self.assertEqual(session.calls[-1][2]["paymentMethod"], "apple_pay")
+        self.assertEqual(transaction.initiation_data["clientSecret"], "pi_123_secret_abc")
+        self.assertEqual(transaction.initiation_data["publishableKey"], "pk_test_stripe")
+
     def test_webhook_signature_verification(self):
         client = TinkerClient("pk_live_123", "sk_live_123", session=FakeSession())
         secret = "whsec_123"

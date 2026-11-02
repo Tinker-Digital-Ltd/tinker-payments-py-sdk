@@ -37,6 +37,45 @@ result = client.transactions().query(
 
 Payments use currency units. Mpesa requires `customerPhone`; `returnUrl` is the browser destination, while webhooks are configured in the dashboard.
 
+### Apple Pay / Google Pay
+
+Set `paymentMethod` to `apple_pay` or `google_pay` with the `stripe` gateway; `customerEmail` is optional. Return `clientSecret` and `publishableKey` from `initiation_data` to the browser.
+
+```python
+payment = client.transactions().initiate(
+    {
+        "amount": 1200,
+        "currency": "USD",
+        "gateway": "stripe",
+        "merchantReference": "ORDER-1002",
+        "returnUrl": "https://merchant.example/payment/return",
+        "paymentMethod": "apple_pay",
+    }
+)
+secrets = {
+    "clientSecret": payment.initiation_data["clientSecret"],
+    "publishableKey": payment.initiation_data["publishableKey"],
+}
+```
+
+```html
+<div id="wallet"></div>
+<script src="https://js.stripe.com/v3/"></script>
+<script type="module">
+  const { clientSecret, publishableKey } = await fetch("/checkout/wallet", { method: "POST" }).then((r) => r.json());
+  const stripe = Stripe(publishableKey);
+  const elements = stripe.elements({ clientSecret });
+  const wallet = elements.create("expressCheckout", { paymentMethods: { applePay: "always", googlePay: "always" } });
+  wallet.mount("#wallet");
+  wallet.on("confirm", async () => {
+    const { error } = await stripe.confirmPayment({ elements, clientSecret, redirect: "if_required", confirmParams: { return_url: location.href } });
+    if (error) console.error(error.message);
+  });
+</script>
+```
+
+The result arrives via `payment.*` webhooks. Apple Pay on the web needs the checkout domain registered with Stripe.
+
 ## Configuration
 
 Test key prefixes (`pk_test_` or `sk_test_`) select `https://sandbox-api.tinkerpayments.com/v1/`; other keys select `https://api.tinkerpayments.com/v1/`. Override with `TinkerClient(pk, sk, base_url="https://custom-host/v1")`; pass `session=` for a requests-compatible transport.
