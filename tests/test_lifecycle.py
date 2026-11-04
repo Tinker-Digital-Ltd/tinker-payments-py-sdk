@@ -6,8 +6,8 @@ from urllib.parse import parse_qs, urlsplit
 
 from test_managed_billing import BillingSession
 
-from tinker import TinkerClient
-from tinker.exceptions import ApiError
+from tinker import Gateways, TinkerClient
+from tinker.exceptions import ApiError, FeatureNotSupportedError
 
 FIXTURE = Path(
     os.environ.get(
@@ -99,6 +99,54 @@ class LifecycleTests(unittest.TestCase):
                     headers.get("Idempotency-Key"),
                     row["headers"].get("Idempotency-Key"),
                 )
+
+    def test_gateway_cases(self):
+        self.assertEqual(Gateways.PESAPAL, "pesapal")
+        for row in CONTRACT["gateway"]["cases"]:
+            session = BillingSession(row["status"], row["response"])
+            tx = TinkerClient("public", "secret", session=session).transactions()
+            op = row["operation"]
+            run = {
+                "listPaymentCapabilities": lambda: tx.capabilities("KES", "KE"),
+                "initiatePayment": lambda: tx.initiate(row["body"]),
+                "queryPayment": lambda: tx.query(row["body"]),
+            }[op]
+            if row["status"] == 422:
+                with self.assertRaises(FeatureNotSupportedError) as raised:
+                    run()
+                error = raised.exception
+                self.assertIsInstance(error, ApiError)
+                self.assertEqual(error.error_code, "FEATURE_NOT_SUPPORTED")
+                self.assertEqual(error.gateway, "mpesa")
+                self.assertEqual(error.feature, "wallet")
+                self.assertEqual(error.alternatives, ["stripe"])
+            else:
+                result = run()
+                if op == "listPaymentCapabilities":
+                    self.assertEqual(result, row["response"]["data"])
+                else:
+                    self.assertEqual(
+                        result.status, "reversed" if op == "queryPayment" else "pending"
+                    )
+            method, url, body, _ = [
+                c for c in session.calls if not c[1].endswith("/auth/token")
+            ][0]
+            actual, expected = (
+                urlsplit(url),
+                urlsplit("https://example.test/v1/" + row["path"]),
+            )
+            self.assertEqual(actual.path, expected.path)
+            self.assertEqual(parse_qs(actual.query), parse_qs(expected.query))
+            self.assertEqual(method, row["method"])
+            self.assertEqual(body, row["body"])
+
+    def test_completed_maps_to_success(self):
+        body = {
+            "success": True,
+            "data": {"id": "a", "reference": "b", "status": "completed"},
+        }
+        tx = TinkerClient("p", "s", session=BillingSession(200, body)).transactions()
+        self.assertTrue(tx.query({"reference": "b"}).is_successful())
 
     def test_structured_errors(self):
         for row in CONTRACT["errors"]:
