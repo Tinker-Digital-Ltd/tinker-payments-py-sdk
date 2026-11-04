@@ -11,7 +11,7 @@ from . import endpoints
 from . import lifecycle as lc
 from .auth import AuthenticationManager
 from .configuration import Configuration
-from .exceptions import ApiError, NetworkError
+from .exceptions import ApiError, FeatureNotSupportedError, NetworkError
 from .lifecycle_helpers import idempotency_headers, payment_path, positive_amount
 from .managed_checkout import ManagedCheckout, unix_seconds
 from .models import ApiMeta, Transaction
@@ -99,7 +99,10 @@ class BaseManager:
             raise NetworkError(f"Failed to communicate with Tinker API: {exc}") from exc
 
     def _api_error(self, response: Any, result: Any) -> ApiError:
-        return ApiError(
+        error = result.get("error") if isinstance(result, dict) else None
+        code = error.get("code") if isinstance(error, dict) else None
+        cls = FeatureNotSupportedError if code == "FEATURE_NOT_SUPPORTED" else ApiError
+        return cls(
             self._extract_error_message(result),
             http_status=response.status_code,
             details=result,
@@ -130,6 +133,15 @@ class TransactionManager(BaseManager):
         if not isinstance(response, dict):
             response = {"value": response}
         return Transaction.from_dict(response)
+
+    def capabilities(
+        self, currency: str | None = None, country: str | None = None
+    ) -> dict[str, Any]:
+        query = urlencode(
+            {k: v for k, v in (("currency", currency), ("country", country)) if v}
+        )
+        path = endpoints.PAYMENT_CAPABILITIES_PATH + ("?" + query if query else "")
+        return cast(dict[str, Any], self._request("GET", path))
 
     def refund(
         self, payment_id: str, payload: lc.RefundRequest, key: str

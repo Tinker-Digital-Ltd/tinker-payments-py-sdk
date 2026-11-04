@@ -22,6 +22,18 @@ class ApiMeta:
         )
 
 
+class Gateways:
+    MPESA = "mpesa"
+    PAYSTACK = "paystack"
+    STRIPE = "stripe"
+    PESAPAL = "pesapal"
+
+
+def _status(data: dict[str, Any]) -> str:
+    status = str(data.get("status", "pending"))
+    return "success" if status == "completed" else status
+
+
 @dataclass
 class Transaction:
     status: str
@@ -38,16 +50,16 @@ class Transaction:
         has_query_shape = "id" in data and "reference" in data
 
         if has_initiation_ref:
-            return cls(status=str(data.get("status", "pending")), initiation_data=data)
+            return cls(status=_status(data), initiation_data=data)
 
         if has_query_shape:
             return cls(
-                status=str(data.get("status", "pending")),
+                status=_status(data),
                 query_data=data,
                 callback_data=data,
             )
 
-        return cls(status=str(data.get("status", "pending")))
+        return cls(status=_status(data))
 
     def is_successful(self) -> bool:
         return self.status == "success"
