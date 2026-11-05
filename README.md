@@ -41,7 +41,7 @@ Any registered provider id works as `gateway`; `Gateways` lists `MPESA`, `PAYSTA
 
 ### Apple Pay / Google Pay
 
-Set `paymentMethod` to `apple_pay` or `google_pay` with the `stripe` gateway; `customerEmail` is optional. Return `clientSecret` and `publishableKey` from `initiation_data` to the browser.
+Set `paymentMethod` to `apple_pay` or `google_pay` with the `stripe` gateway (`bnpl`: Klarna on Stripe Checkout); `customerEmail` is optional. Return `clientSecret` and `publishableKey` from `initiation_data` to the browser.
 
 ```python
 payment = client.transactions().initiate(
