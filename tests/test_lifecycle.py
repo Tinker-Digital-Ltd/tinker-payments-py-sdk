@@ -12,8 +12,8 @@ from tinker.exceptions import ApiError, FeatureNotSupportedError
 FIXTURE = Path(
     os.environ.get(
         "TINKER_LIFECYCLE_FIXTURE",
-        Path(__file__).parents[2]
-        / "tinker-payments-openapi/fixtures/merchant-lifecycle.json",
+        Path(__file__).parents[3]
+        / "tinker-payments-backend/openapi/fixtures/merchant-lifecycle.json",
     )
 )
 CONTRACT = json.loads(
@@ -186,8 +186,8 @@ class CancellationWebhookTests(unittest.TestCase):
         path = Path(__file__).parent / "fixtures/checkout-cancellation-webhook.json"
         raw = path.read_text()
         canonical = (
-            Path(__file__).parents[2]
-            / "tinker-payments-openapi/fixtures/checkout-cancellation-webhook.json"
+            Path(__file__).parents[3]
+            / "tinker-payments-backend/openapi/fixtures/checkout-cancellation-webhook.json"
         )
         if canonical.exists():
             self.assertEqual(json.loads(raw), json.loads(canonical.read_text()))
@@ -212,8 +212,8 @@ class CancellationWebhookTests(unittest.TestCase):
         ]:
             raw = (Path(__file__).parent / f"fixtures/{name}-webhook.json").read_text()
             canonical = (
-                Path(__file__).parents[2]
-                / f"tinker-payments-openapi/fixtures/{name}-webhook.json"
+                Path(__file__).parents[3]
+                / f"tinker-payments-backend/openapi/fixtures/{name}-webhook.json"
             )
             if canonical.exists():
                 self.assertEqual(json.loads(raw), json.loads(canonical.read_text()))
