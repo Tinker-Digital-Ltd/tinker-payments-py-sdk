@@ -114,8 +114,13 @@ subs.create(
     }
 )
 subs.list(plan_id="plan_123", external_customer_id="cust_123")
+subs.update_plan("plan_123", {"name": "Pro", "amount": 1000, "currency": "KES", "intervals": ["monthly"]})
+subs.delete_plan("plan_123")
+subs.list_invoices(subscription_id="sub_123", page=1, page_size=25)  # all arguments optional
 subs.cancel("sub_123")
 ```
+
+`country` (ISO alpha-2) is optional on initiate and `subs.create`, `customerName` on initiate. `country` comes back on payments and `payment.*` webhooks.
 
 ## Managed recurring billing
 

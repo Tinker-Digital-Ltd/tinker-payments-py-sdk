@@ -79,6 +79,7 @@ class PaymentEventData:
     channel: str
     created_at: str
     paid_at: str | None
+    country: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PaymentEventData:
@@ -91,6 +92,7 @@ class PaymentEventData:
             channel=str(data.get("channel", "")),
             created_at=str(data.get("created_at", "")),
             paid_at=str(data["paid_at"]) if data.get("paid_at") is not None else None,
+            country=str(data["country"]) if data.get("country") else None,
         )
 
 
@@ -312,6 +314,7 @@ class WebhookEvent:
                 "channel": self.data.channel,
                 "created_at": self.data.created_at,
                 "paid_at": self.data.paid_at,
+                **({"country": self.data.country} if self.data.country else {}),
             }
         )
 

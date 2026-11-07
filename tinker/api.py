@@ -253,6 +253,35 @@ class SubscriptionManager(BaseManager):
         response = self._request("GET", endpoints.SUBSCRIPTION_PLANS_PATH)
         return response if isinstance(response, list) else []
 
+    def update_plan(self, plan_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        response = self._request("PUT", self._plan_path(plan_id), payload)
+        return response if isinstance(response, dict) else {"value": response}
+
+    def delete_plan(self, plan_id: str) -> dict[str, Any]:
+        response = self._request("DELETE", self._plan_path(plan_id))
+        return response if isinstance(response, dict) else {"value": response}
+
+    def list_invoices(
+        self,
+        subscription_id: str | None = None,
+        page: int | None = None,
+        page_size: int | None = None,
+    ) -> dict[str, Any]:
+        query = urlencode(
+            {
+                k: v
+                for k, v in (
+                    ("subscription_id", subscription_id),
+                    ("page", page),
+                    ("page_size", page_size),
+                )
+                if v
+            }
+        )
+        path = endpoints.SUBSCRIPTION_INVOICES_PATH + ("?" + query if query else "")
+        response = self._request("GET", path)
+        return response if isinstance(response, dict) else {"value": response}
+
     def create(self, payload: dict[str, Any]) -> dict[str, Any]:
         response = self._request("POST", endpoints.SUBSCRIPTION_BASE_PATH, payload)
         return response if isinstance(response, dict) else {"value": response}
@@ -369,6 +398,10 @@ class SubscriptionManager(BaseManager):
         if params:
             endpoint += "?" + urlencode(params)
         return self._request("GET", endpoint)
+
+    @staticmethod
+    def _plan_path(plan_id: str) -> str:
+        return endpoints.SUBSCRIPTION_PLANS_PATH + "/" + quote(plan_id, safe="")
 
     @staticmethod
     def _billing_resource_path(resource_id: str) -> str:
