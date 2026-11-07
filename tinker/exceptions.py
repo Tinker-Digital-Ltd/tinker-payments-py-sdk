@@ -34,6 +34,19 @@ class ApiError(TinkerError):
         self.outcome = error.get("outcome")
 
 
+class FeatureNotSupportedError(ApiError):
+    """HTTP 422 FEATURE_NOT_SUPPORTED: the gateway can't do what was asked."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        error = self.details.get("error") if isinstance(self.details, dict) else None
+        info = error.get("details") if isinstance(error, dict) else None
+        info = info if isinstance(info, dict) else {}
+        self.gateway = info.get("gateway")
+        self.feature = info.get("feature")
+        self.alternatives = info.get("alternatives") or []
+
+
 class NetworkError(TinkerError):
     """Raised when request transport fails."""
 

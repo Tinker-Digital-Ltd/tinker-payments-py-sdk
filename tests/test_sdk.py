@@ -135,6 +135,22 @@ class SdkTests(unittest.TestCase):
 
         self.assertTrue(client.webhooks().verify_signature(payload, secret))
 
+    def test_payment_webhook_country_and_unknown_status(self):
+        handler = TinkerClient("pk", "sk", session=FakeSession()).webhooks()
+        base = {"id": "p", "status": "authorised", "reference": "R", "amount": 1}
+        for data, country in (({**base, "country": "DE"}, "DE"), (base, None)):
+            event = handler.handle(
+                {
+                    "id": "e",
+                    "type": "payment.updated",
+                    "source": "payment",
+                    "timestamp": "t",
+                    "data": data,
+                }
+            )
+            self.assertEqual(event.data.country, country)
+            self.assertEqual(event.data.status, "authorised")
+
 
 if __name__ == "__main__":
     unittest.main()
