@@ -363,6 +363,19 @@
   ],
   "errors": [
     {
+      "status": 403,
+      "response": {
+        "success": false,
+        "error": {
+          "code": "PAID_PLAN_REQUIRED",
+          "message": "upgrade your plan to use custom credentials. pay as you go uses platform credentials only. gateway: adyen",
+          "details": {
+            "plan": "payg"
+          }
+        }
+      }
+    },
+    {
       "status": 422,
       "response": {
         "success": false,
