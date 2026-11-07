@@ -29,6 +29,19 @@ class Gateways:
     PESAPAL = "pesapal"
 
 
+class PaymentStatus:
+    PENDING = "pending"
+    AUTHORISED = "authorised"
+    SUCCESS = "success"
+    CANCELLED = "cancelled"
+    FAILED = "failed"
+    BLOCKED = "blocked"
+    REFUNDED = "refunded"
+    PARTIALLY_REFUNDED = "partially_refunded"
+    EXPIRED = "expired"
+    REVERSED = "reversed"
+
+
 def _status(data: dict[str, Any]) -> str:
     status = str(data.get("status", "pending"))
     return "success" if status == "completed" else status

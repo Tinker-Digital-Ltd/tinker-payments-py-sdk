@@ -452,7 +452,8 @@
                 "methods": [
                   "card",
                   "apple_pay",
-                  "google_pay"
+                  "google_pay",
+                  "bnpl"
                 ],
                 "currencies": [],
                 "countries": [],

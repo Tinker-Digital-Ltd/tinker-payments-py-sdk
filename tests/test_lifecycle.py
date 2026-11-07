@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from test_managed_billing import BillingSession
 
-from tinker import Gateways, TinkerClient
+from tinker import Gateways, PaymentStatus, TinkerClient
 from tinker.exceptions import ApiError, FeatureNotSupportedError
 
 FIXTURE = Path(
@@ -147,6 +147,16 @@ class LifecycleTests(unittest.TestCase):
         }
         tx = TinkerClient("p", "s", session=BillingSession(200, body)).transactions()
         self.assertTrue(tx.query({"reference": "b"}).is_successful())
+
+    def test_payment_status_constants_and_unknown_pass_through(self):
+        self.assertEqual(PaymentStatus.PARTIALLY_REFUNDED, "partially_refunded")
+        self.assertEqual(PaymentStatus.SUCCESS, "success")
+        body = {
+            "success": True,
+            "data": {"id": "a", "reference": "b", "status": "future_state"},
+        }
+        tx = TinkerClient("p", "s", session=BillingSession(200, body)).transactions()
+        self.assertEqual(tx.query({"reference": "b"}).status, "future_state")
 
     def test_structured_errors(self):
         for row in CONTRACT["errors"]:
