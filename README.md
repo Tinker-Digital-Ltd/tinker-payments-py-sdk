@@ -86,6 +86,73 @@ The result arrives via `payment.*` webhooks. Apple Pay and Google Pay on the web
 
 Test key prefixes (`pk_test_` or `sk_test_`) select `https://sandbox-api.tinkerpayments.com/v1/`; other keys select `https://api.tinkerpayments.com/v1/`. Override with `TinkerClient(pk, sk, base_url="https://custom-host/v1")`; pass `session=` for a requests-compatible transport.
 
+## Provider examples
+
+Every provider takes the same request. Keys and values are fake.
+
+```python
+from tinker import FeatureNotSupportedError
+
+tx = client.transactions()
+return_url = "https://shop.example/return"
+
+# Redirect (Paystack, Pesapal, PayPal, Flutterwave, DPO, Interswitch, Adyen, Plaid, hosted Stripe):
+# send the customer to initiation_data["authorizationUrl"].
+payment = tx.initiate(
+    {
+        "amount": 2500, "currency": "NGN", "gateway": "paystack",
+        "merchantReference": "ORDER-1", "returnUrl": return_url,
+        "customerEmail": "jane@example.com",
+    }
+)
+
+# Phone approval (M-Pesa, MTN MoMo): no authorizationUrl. The customer approves on their phone
+# and the result arrives as a payment.completed or payment.failed webhook.
+tx.initiate(
+    {
+        "amount": 100, "currency": "KES", "gateway": "mpesa",
+        "merchantReference": "ORDER-2", "returnUrl": return_url,
+        "customerPhone": "+254712345678",
+    }
+)
+
+# Klarna (paymentMethod "bnpl" on Stripe or Adyen) is captured at once. Adyen also needs country
+# (AT DK FI DE NO SE CH NL GB US) and that country's currency.
+tx.initiate(
+    {
+        "amount": 49.9, "currency": "EUR", "gateway": "adyen",
+        "merchantReference": "ORDER-3", "returnUrl": return_url,
+        "customerEmail": "jane@example.com", "country": "DE", "paymentMethod": "bnpl",
+    }
+)
+
+# Plaid (plaid_transfer, plaid_payments): customerName is required.
+# Payment Initiation INITIATED counts as paid.
+tx.initiate(
+    {
+        "amount": 40, "currency": "GBP", "gateway": "plaid_payments",
+        "merchantReference": "ORDER-4", "returnUrl": return_url,
+        "customerEmail": "jane@example.com", "customerName": "Jane Doe", "country": "GB",
+    }
+)
+
+# Ask first, then handle a refusal.
+for p in tx.capabilities("KES", "KE")["providers"]:
+    print(p["gateway"], p["capabilities"]["pay_mobile_money"])
+try:
+    tx.initiate(
+        {
+            "amount": 100, "currency": "KES", "gateway": "mpesa",
+            "merchantReference": "ORDER-5", "returnUrl": return_url,
+            "customerPhone": "+254712345678", "paymentMethod": "apple_pay",
+        }
+    )
+except FeatureNotSupportedError as error:
+    print(error.gateway, error.feature, error.alternatives)  # retry on one of alternatives
+```
+
+Pay-as-you-go apps use Tinker's provider credentials; your own need a paid plan (HTTP 403 `PAID_PLAN_REQUIRED`).
+
 ## Plan subscriptions
 
 ```python
