@@ -205,3 +205,27 @@ class ManagedBillingTests(unittest.TestCase):
         m = TinkerClient("public", "secret", session=session).subscriptions()
         with self.assertRaises(NetworkError):
             m.list_plans()
+
+
+class PlanAndInvoiceTests(unittest.TestCase):
+    def test_plan_update_delete_and_invoice_list(self):
+        session = BillingSession()
+        m = TinkerClient("public", "secret", session=session).subscriptions()
+        m.update_plan("plan/a b", {"name": "Pro"})
+        m.delete_plan("plan/a b")
+        m.list_invoices("sub-1", 2, 50)
+        m.list_invoices()
+        calls = [(c[0], c[1].split("/v1/")[-1], c[2]) for c in session.calls[-4:]]
+        self.assertEqual(
+            calls,
+            [
+                ("PUT", "merchant/subscriptions/plans/plan%2Fa%20b", {"name": "Pro"}),
+                ("DELETE", "merchant/subscriptions/plans/plan%2Fa%20b", None),
+                (
+                    "GET",
+                    "merchant/subscriptions/invoices?subscription_id=sub-1&page=2&page_size=50",
+                    None,
+                ),
+                ("GET", "merchant/subscriptions/invoices", None),
+            ],
+        )

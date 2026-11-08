@@ -363,6 +363,19 @@
   ],
   "errors": [
     {
+      "status": 403,
+      "response": {
+        "success": false,
+        "error": {
+          "code": "PAID_PLAN_REQUIRED",
+          "message": "Your own adyen credentials need a paid plan. Pay as you go uses Tinker's credentials.",
+          "details": {
+            "plan": "payg"
+          }
+        }
+      }
+    },
+    {
       "status": 422,
       "response": {
         "success": false,
@@ -432,5 +445,159 @@
         }
       }
     }
-  ]
+  ],
+  "gateway": {
+    "cases": [
+      {
+        "operation": "listPaymentCapabilities",
+        "method": "GET",
+        "path": "merchant/payment/capabilities?currency=KES&country=KE",
+        "headers": {},
+        "body": null,
+        "status": 200,
+        "response": {
+          "success": true,
+          "data": {
+            "providers": [
+              {
+                "gateway": "stripe",
+                "name": "Stripe",
+                "methods": [
+                  "card",
+                  "apple_pay",
+                  "google_pay",
+                  "bnpl"
+                ],
+                "currencies": [],
+                "countries": [],
+                "capabilities": {
+                  "refund": "native",
+                  "cancellation": "native",
+                  "wallet": "native",
+                  "subscriptions": "native"
+                }
+              },
+              {
+                "gateway": "mpesa",
+                "name": "M-Pesa",
+                "methods": [
+                  "mobile_money"
+                ],
+                "currencies": [
+                  "KES"
+                ],
+                "countries": [
+                  "KE"
+                ],
+                "capabilities": {
+                  "refund": "manual",
+                  "cancellation": "unavailable",
+                  "wallet": "unavailable",
+                  "subscriptions": "unavailable"
+                }
+              },
+              {
+                "gateway": "futurepay",
+                "name": "FuturePay",
+                "methods": [
+                  "bank"
+                ],
+                "currencies": [
+                  "KES"
+                ],
+                "countries": [
+                  "KE"
+                ],
+                "capabilities": {
+                  "refund": "emulated",
+                  "cancellation": "unavailable",
+                  "wallet": "unavailable",
+                  "subscriptions": "unavailable",
+                  "future_feature": "native"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "operation": "initiatePayment",
+        "method": "POST",
+        "path": "merchant/payment/initiate",
+        "headers": {
+          "Idempotency-Key": "stable-key"
+        },
+        "body": {
+          "amount": 100,
+          "currency": "KES",
+          "gateway": "mpesa",
+          "merchantReference": "ORDER-1",
+          "returnUrl": "https://example.com/return",
+          "customerPhone": "+254712345678",
+          "paymentMethod": "apple_pay"
+        },
+        "status": 422,
+        "response": {
+          "success": false,
+          "error": {
+            "code": "FEATURE_NOT_SUPPORTED",
+            "message": "Request cannot complete",
+            "details": {
+              "gateway": "mpesa",
+              "feature": "wallet",
+              "alternatives": [
+                "stripe"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "operation": "initiatePayment",
+        "method": "POST",
+        "path": "merchant/payment/initiate",
+        "headers": {},
+        "body": {
+          "amount": 100,
+          "currency": "KES",
+          "gateway": "futurepay",
+          "merchantReference": "ORDER-2",
+          "returnUrl": "https://example.com/return"
+        },
+        "status": 200,
+        "response": {
+          "success": true,
+          "data": {
+            "paymentReference": "PAY-future1",
+            "status": "pending",
+            "authorizationUrl": "https://pay.example.test/checkout/future1"
+          }
+        }
+      },
+      {
+        "operation": "queryPayment",
+        "method": "POST",
+        "path": "merchant/payment/query",
+        "headers": {},
+        "body": {
+          "reference": "PAY-future1",
+          "gateway": "futurepay"
+        },
+        "status": 200,
+        "response": {
+          "success": true,
+          "data": {
+            "id": "payment-future1",
+            "status": "reversed",
+            "reference": "PAY-future1",
+            "amount": 100,
+            "currency": "KES",
+            "paid_at": "2026-10-15T10:00:00Z",
+            "created_at": "2026-10-15T09:55:00Z",
+            "channel": "bank"
+          }
+        }
+      }
+    ]
+  }
 }

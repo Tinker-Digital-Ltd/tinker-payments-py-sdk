@@ -6,14 +6,14 @@ from urllib.parse import parse_qs, urlsplit
 
 from test_managed_billing import BillingSession
 
-from tinker import TinkerClient
-from tinker.exceptions import ApiError
+from tinker import Gateways, PaymentStatus, TinkerClient
+from tinker.exceptions import ApiError, FeatureNotSupportedError
 
 FIXTURE = Path(
     os.environ.get(
         "TINKER_LIFECYCLE_FIXTURE",
-        Path(__file__).parents[2]
-        / "tinker-payments-openapi/fixtures/merchant-lifecycle.json",
+        Path(__file__).parents[3]
+        / "tinker-payments-backend/openapi/fixtures/merchant-lifecycle.json",
     )
 )
 CONTRACT = json.loads(
@@ -100,6 +100,64 @@ class LifecycleTests(unittest.TestCase):
                     row["headers"].get("Idempotency-Key"),
                 )
 
+    def test_gateway_cases(self):
+        self.assertEqual(Gateways.PESAPAL, "pesapal")
+        for row in CONTRACT["gateway"]["cases"]:
+            session = BillingSession(row["status"], row["response"])
+            tx = TinkerClient("public", "secret", session=session).transactions()
+            op = row["operation"]
+            run = {
+                "listPaymentCapabilities": lambda: tx.capabilities("KES", "KE"),
+                "initiatePayment": lambda: tx.initiate(row["body"]),
+                "queryPayment": lambda: tx.query(row["body"]),
+            }[op]
+            if row["status"] == 422:
+                with self.assertRaises(FeatureNotSupportedError) as raised:
+                    run()
+                error = raised.exception
+                self.assertIsInstance(error, ApiError)
+                self.assertEqual(error.error_code, "FEATURE_NOT_SUPPORTED")
+                self.assertEqual(error.gateway, "mpesa")
+                self.assertEqual(error.feature, "wallet")
+                self.assertEqual(error.alternatives, ["stripe"])
+            else:
+                result = run()
+                if op == "listPaymentCapabilities":
+                    self.assertEqual(result, row["response"]["data"])
+                else:
+                    self.assertEqual(
+                        result.status, "reversed" if op == "queryPayment" else "pending"
+                    )
+            method, url, body, _ = [
+                c for c in session.calls if not c[1].endswith("/auth/token")
+            ][0]
+            actual, expected = (
+                urlsplit(url),
+                urlsplit("https://example.test/v1/" + row["path"]),
+            )
+            self.assertEqual(actual.path, expected.path)
+            self.assertEqual(parse_qs(actual.query), parse_qs(expected.query))
+            self.assertEqual(method, row["method"])
+            self.assertEqual(body, row["body"])
+
+    def test_completed_maps_to_success(self):
+        body = {
+            "success": True,
+            "data": {"id": "a", "reference": "b", "status": "completed"},
+        }
+        tx = TinkerClient("p", "s", session=BillingSession(200, body)).transactions()
+        self.assertTrue(tx.query({"reference": "b"}).is_successful())
+
+    def test_payment_status_constants_and_unknown_pass_through(self):
+        self.assertEqual(PaymentStatus.PARTIALLY_REFUNDED, "partially_refunded")
+        self.assertEqual(PaymentStatus.SUCCESS, "success")
+        body = {
+            "success": True,
+            "data": {"id": "a", "reference": "b", "status": "future_state"},
+        }
+        tx = TinkerClient("p", "s", session=BillingSession(200, body)).transactions()
+        self.assertEqual(tx.query({"reference": "b"}).status, "future_state")
+
     def test_structured_errors(self):
         for row in CONTRACT["errors"]:
             client = TinkerClient(
@@ -138,8 +196,8 @@ class CancellationWebhookTests(unittest.TestCase):
         path = Path(__file__).parent / "fixtures/checkout-cancellation-webhook.json"
         raw = path.read_text()
         canonical = (
-            Path(__file__).parents[2]
-            / "tinker-payments-openapi/fixtures/checkout-cancellation-webhook.json"
+            Path(__file__).parents[3]
+            / "tinker-payments-backend/openapi/fixtures/checkout-cancellation-webhook.json"
         )
         if canonical.exists():
             self.assertEqual(json.loads(raw), json.loads(canonical.read_text()))
@@ -164,8 +222,8 @@ class CancellationWebhookTests(unittest.TestCase):
         ]:
             raw = (Path(__file__).parent / f"fixtures/{name}-webhook.json").read_text()
             canonical = (
-                Path(__file__).parents[2]
-                / f"tinker-payments-openapi/fixtures/{name}-webhook.json"
+                Path(__file__).parents[3]
+                / f"tinker-payments-backend/openapi/fixtures/{name}-webhook.json"
             )
             if canonical.exists():
                 self.assertEqual(json.loads(raw), json.loads(canonical.read_text()))

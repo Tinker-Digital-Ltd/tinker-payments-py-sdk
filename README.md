@@ -37,9 +37,11 @@ result = client.transactions().query(
 
 Payments use currency units. Mpesa requires `customerPhone`; `returnUrl` is the browser destination, while webhooks are configured in the dashboard.
 
+Any registered provider id works as `gateway`; `Gateways` lists `MPESA`, `PAYSTACK`, `STRIPE` and `PESAPAL`. List what each provider supports with `client.transactions().capabilities("KES", "KE")` (both filters optional). A status the SDK does not know is kept as sent; `completed` is reported as `success`.
+
 ### Apple Pay / Google Pay
 
-Set `paymentMethod` to `apple_pay` or `google_pay` with the `stripe` gateway; `customerEmail` is optional. Return `clientSecret` and `publishableKey` from `initiation_data` to the browser.
+Set `paymentMethod` to `apple_pay` or `google_pay` with the `stripe` gateway (`bnpl`: Klarna on Stripe Checkout); `customerEmail` is optional. Return `clientSecret` and `publishableKey` from `initiation_data` to the browser.
 
 ```python
 payment = client.transactions().initiate(
@@ -84,6 +86,73 @@ The result arrives via `payment.*` webhooks. Apple Pay and Google Pay on the web
 
 Test key prefixes (`pk_test_` or `sk_test_`) select `https://sandbox-api.tinkerpayments.com/v1/`; other keys select `https://api.tinkerpayments.com/v1/`. Override with `TinkerClient(pk, sk, base_url="https://custom-host/v1")`; pass `session=` for a requests-compatible transport.
 
+## Provider examples
+
+Every provider takes the same request. Keys and values are fake.
+
+```python
+from tinker import FeatureNotSupportedError
+
+tx = client.transactions()
+return_url = "https://shop.example/return"
+
+# Redirect (Paystack, Pesapal, PayPal, Flutterwave, DPO, Interswitch, Adyen, Plaid, hosted Stripe):
+# send the customer to initiation_data["authorizationUrl"].
+payment = tx.initiate(
+    {
+        "amount": 2500, "currency": "NGN", "gateway": "paystack",
+        "merchantReference": "ORDER-1", "returnUrl": return_url,
+        "customerEmail": "jane@example.com",
+    }
+)
+
+# Phone approval (M-Pesa, MTN MoMo): no authorizationUrl. The customer approves on their phone
+# and the result arrives as a payment.completed or payment.failed webhook.
+tx.initiate(
+    {
+        "amount": 100, "currency": "KES", "gateway": "mpesa",
+        "merchantReference": "ORDER-2", "returnUrl": return_url,
+        "customerPhone": "+254712345678",
+    }
+)
+
+# Klarna (paymentMethod "bnpl" on Stripe or Adyen) is captured at once. Adyen also needs country
+# (AT DK FI DE NO SE CH NL GB US) and that country's currency.
+tx.initiate(
+    {
+        "amount": 49.9, "currency": "EUR", "gateway": "adyen",
+        "merchantReference": "ORDER-3", "returnUrl": return_url,
+        "customerEmail": "jane@example.com", "country": "DE", "paymentMethod": "bnpl",
+    }
+)
+
+# Plaid (plaid_transfer, plaid_payments): customerName is required.
+# Payment Initiation INITIATED counts as paid.
+tx.initiate(
+    {
+        "amount": 40, "currency": "GBP", "gateway": "plaid_payments",
+        "merchantReference": "ORDER-4", "returnUrl": return_url,
+        "customerEmail": "jane@example.com", "customerName": "Jane Doe", "country": "GB",
+    }
+)
+
+# Ask first, then handle a refusal.
+for p in tx.capabilities("KES", "KE")["providers"]:
+    print(p["gateway"], p["capabilities"]["pay_mobile_money"])
+try:
+    tx.initiate(
+        {
+            "amount": 100, "currency": "KES", "gateway": "mpesa",
+            "merchantReference": "ORDER-5", "returnUrl": return_url,
+            "customerPhone": "+254712345678", "paymentMethod": "apple_pay",
+        }
+    )
+except FeatureNotSupportedError as error:
+    print(error.gateway, error.feature, error.alternatives)  # retry on one of alternatives
+```
+
+Pay-as-you-go apps use Tinker's provider credentials; your own need a paid plan (HTTP 403 `PAID_PLAN_REQUIRED`).
+
 ## Plan subscriptions
 
 ```python
@@ -112,8 +181,13 @@ subs.create(
     }
 )
 subs.list(plan_id="plan_123", external_customer_id="cust_123")
+subs.update_plan("plan_123", {"name": "Pro", "amount": 1000, "currency": "KES", "intervals": ["monthly"]})
+subs.delete_plan("plan_123")
+subs.list_invoices(subscription_id="sub_123", page=1, page_size=25)  # all arguments optional
 subs.cancel("sub_123")
 ```
+
+`country` (ISO alpha-2) is optional on initiate and `subs.create`, `customerName` on initiate. `country` comes back on payments and `payment.*` webhooks.
 
 ## Managed recurring billing
 
@@ -164,7 +238,7 @@ billing.expire_checkout("checkout-id", "expire-checkout-1")
 
 ### Trials with a required payment method
 
-Set `trial_days` (1 to 730) or an exact `trial_end` (timezone-aware `datetime`, 48 hours to 730 days ahead; cannot be combined with `trial_days`) to collect a card at checkout and charge first when the trial ends. The SDK sends `trial_days` only when it is above 0 and `trial_end` only when set, so checkouts without a trial keep working against servers released before trial support. A gateway without trial support returns HTTP 422 `TRIAL_UNSUPPORTED` with `outcome: not_applied`. Limiting a customer to one trial is the app's responsibility.
+Set `trial_days` (1 to 730) or an exact `trial_end` (timezone-aware `datetime`, 48 hours to 730 days ahead; cannot be combined with `trial_days`) to collect a card at checkout and charge first when the trial ends. The SDK sends `trial_days` only when it is above 0 and `trial_end` only when set, so checkouts without a trial keep working against servers released before trial support. A gateway without trial support returns HTTP 422 `FEATURE_NOT_SUPPORTED` with `outcome: not_applied`. Limiting a customer to one trial is the app's responsibility.
 
 ```python
 billing.checkout(ManagedCheckout(
@@ -204,7 +278,7 @@ The app owner must enable withdrawal requests in app settings. A payout is a wit
 
 Supply a stable `Idempotency-Key` for every refund, payout or cancellation request. Keys are trimmed and must be 1–255 UTF-8 bytes. Reuse the same key and semantic request after transport failures; a changed request conflicts. A replay returns the original resource and fee snapshot. Start a new key for a new intended operation.
 
-A refund's `pending_review`/`approved` state and a payout's `pending_approval`/`approved` state are not completion. Only `refunded`, `paid` or provider-confirmed `cancelled` establishes completion. Preserve cancellation `outcome_unknown` and poll by ID; do not blindly submit another request. Unsupported cancellation raises HTTP 422 `CHECKOUT_CANCELLATION_UNSUPPORTED` and retains the persisted `request_id`/`status` in error details. Lifecycle conflicts use HTTP 409; replaying a persisted rejection retains its 422/409 result.
+A refund's `pending_review`/`approved` state and a payout's `pending_approval`/`approved` state are not completion. Only `refunded`, `paid` or provider-confirmed `cancelled` establishes completion. Preserve cancellation `outcome_unknown` and poll by ID; do not blindly submit another request. An unsupported feature raises HTTP 422 `FEATURE_NOT_SUPPORTED` as `FeatureNotSupportedError` (an `ApiError`) with `gateway`, `feature` and `alternatives`. Lifecycle conflicts use HTTP 409; replaying a persisted rejection retains its 422/409 result.
 
 Refund history includes refundable amounts and `refund_capability`. Cancellation history includes `capability`, the newest 100 requests and `has_more`; retrieve older known requests by ID. Payout listing accepts `page`, `per_page` (maximum 100), `status` and `currency`. Reads are scoped to the app; payout reads show only requests attributed to that app.
 

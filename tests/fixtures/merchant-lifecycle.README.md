@@ -1,1 +1,1 @@
-Snapshot of tinker-payments-openapi/fixtures/merchant-lifecycle.json, contract_version 1. Update the canonical fixture first; tests compare this snapshot when the sibling repository is present. Set TINKER_LIFECYCLE_FIXTURE to test a separate canonical checkout.
+Snapshot of tinker-payments-backend/openapi/fixtures/merchant-lifecycle.json, contract_version 1. Update the canonical fixture first; tests compare this snapshot when the backend repository is present. Set TINKER_LIFECYCLE_FIXTURE to test a separate canonical checkout.

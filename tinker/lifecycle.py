@@ -81,6 +81,7 @@ class _PaymentDetailRequired(TypedDict):
 
 
 class PaymentDetail(_PaymentDetailRequired, total=False):
+    country: str
     refundable_amount: float
     refund_capability: RefundCapability
     refunds: list[Refund]
