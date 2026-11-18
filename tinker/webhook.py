@@ -42,6 +42,60 @@ def lifecycle_resource(data: dict[str, Any]) -> dict[str, Any]:
     return resource
 
 
+def _opt(data: dict[str, Any], key: str) -> str | None:
+    return str(data[key]) if data.get(key) is not None else None
+
+
+def _ids(data: dict[str, Any], key: str = "entitlement_ids") -> list[str]:
+    value = data.get(key)
+    return [str(item) for item in value] if isinstance(value, list) else []
+
+
+@dataclass(frozen=True)
+class EntitlementEventData:
+    external_customer_id: str
+    entitlement_ids: list[str]
+    store: str
+    period_type: str
+    expiration_at: str | None
+    id: str | None = None
+    transaction_id: str | None = None
+    product_id: str | None = None
+    amount: float | None = None
+    currency: str | None = None
+    purchased_at: str | None = None
+    presented_offering_id: str | None = None
+    revoked_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> EntitlementEventData:
+        return cls(
+            external_customer_id=str(data.get("external_customer_id", "")),
+            entitlement_ids=_ids(data),
+            store=str(data.get("store", "")),
+            period_type=str(data.get("period_type", "")),
+            expiration_at=_opt(data, "expiration_at"),
+            id=_opt(data, "id"),
+            transaction_id=_opt(data, "transaction_id"),
+            product_id=_opt(data, "product_id"),
+            amount=float(data["amount"]) if data.get("amount") is not None else None,
+            currency=_opt(data, "currency"),
+            purchased_at=_opt(data, "purchased_at"),
+            presented_offering_id=_opt(data, "presented_offering_id"),
+            revoked_at=_opt(data, "revoked_at"),
+        )
+
+
+@dataclass(frozen=True)
+class CustomerEventData:
+    transferred_from: list[str]
+    transferred_to: list[str]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CustomerEventData:
+        return cls(_ids(data, "transferred_from"), _ids(data, "transferred_to"))
+
+
 @dataclass(frozen=True)
 class RefundEventData:
     resource: Refund
@@ -110,6 +164,12 @@ class SubscriptionEventData:
     reactivated_at: str | None
     billing_status: str | None = None
     trial_ends_at: str | None = None
+    product_id: str | None = None
+    entitlement_ids: list[str] | None = None
+    store: str | None = None
+    period_type: str | None = None
+    expiration_at: str | None = None
+    grace_period_expiration_at: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SubscriptionEventData:
@@ -143,6 +203,12 @@ class SubscriptionEventData:
             trial_ends_at=str(data["trial_ends_at"])
             if data.get("trial_ends_at") is not None
             else None,
+            product_id=_opt(data, "product_id"),
+            entitlement_ids=_ids(data),
+            store=_opt(data, "store"),
+            period_type=_opt(data, "period_type"),
+            expiration_at=_opt(data, "expiration_at"),
+            grace_period_expiration_at=_opt(data, "grace_period_expiration_at"),
         )
 
 
@@ -215,6 +281,8 @@ class WebhookEvent:
         | InvoiceEventData
         | SettlementEventData
         | OnboardingEventData
+        | EntitlementEventData
+        | CustomerEventData
     )
     meta: WebhookMeta
     security: WebhookSecurity
@@ -237,9 +305,19 @@ class WebhookEvent:
             | InvoiceEventData
             | SettlementEventData
             | OnboardingEventData
+            | EntitlementEventData
+            | CustomerEventData
+            | EntitlementEventData
+            | CustomerEventData
         )
 
-        if source == "payment" and str(payload.get("type", "")).startswith(
+        if source == "entitlement" or (
+            source == "payment" and payload.get("type") == "purchase.completed"
+        ):
+            event_data = EntitlementEventData.from_dict(raw_data)
+        elif source == "customer":
+            event_data = CustomerEventData.from_dict(raw_data)
+        elif source == "payment" and str(payload.get("type", "")).startswith(
             "checkout.cancellation.updated."
         ):
             event_data = CheckoutCancellationEventData.from_dict(raw_data)

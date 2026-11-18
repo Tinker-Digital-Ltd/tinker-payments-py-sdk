@@ -189,6 +189,34 @@ subs.cancel("sub_123")
 
 `country` (ISO alpha-2) is optional on initiate and `subs.create`, `customerName` on initiate. `country` comes back on payments and `payment.*` webhooks.
 
+## Customer access
+
+Server-side access for one-time products and subscriptions. Responses are unwrapped data maps/lists.
+
+```python
+customers = client.customers()
+customers.get("cust_123")
+customers.get_entitlement("cust_123", "pro")
+customers.grant_promotional_entitlement("cust_123", "pro", {"duration": "P7D"})
+customers.revoke_promotional_entitlements("cust_123", "pro")
+customers.alias("cust_123", {...})
+customers.transfer("cust_123", {...})
+customers.set_attributes("cust_123", {...})
+customers.get_offerings("cust_123")
+customers.create_token("cust_123")  # short-lived token for client SDKs
+
+client.entitlements()  # list, create, get, update, delete, attach_products, detach_products
+client.products()  # list, create, get, update
+client.offerings()  # list, create, get, update, delete
+client.experiments()  # list, create, get, stop
+client.integrations()  # list, upsert, delete, test (kind: slack, segment, mixpanel)
+client.metrics().get("2026-01-01", "2026-01-31")  # dates optional
+client.subscriptions().list_renewal_prompts("sub_123")
+client.subscriptions().send_renewal_prompt("sub_123")
+```
+
+Initiate payloads accept `productId`, `externalCustomerId` and `presentedOfferingId`. Webhooks add `purchase.completed`, `entitlement.*`, `customer.transferred` and `subscription.billing_issue`.
+
 ## Managed recurring billing
 
 Checkout uses exact integer minor-unit prices (`15000` = EUR 150.00), a `month` or `year` interval, and a quantity. The SDK does not convert prices or apply discounts. Responses are unwrapped data maps/objects.
