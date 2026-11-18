@@ -176,6 +176,7 @@ subs.create(
         "gateway": "stripe",
         "customer": {
             "external_customer_id": "cust_123",
+            "name": "Jane Doe",
             "email": "customer@example.com",
         },
     }
