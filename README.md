@@ -195,23 +195,23 @@ Server-side access for one-time products and subscriptions. Responses are unwrap
 
 ```python
 customers = client.customers()
-customers.get("cust_123")
+customers.get_customer("cust_123")
 customers.get_entitlement("cust_123", "pro")
-customers.grant_promotional_entitlement("cust_123", "pro", {"duration": "P7D"})
+customers.grant_promotional_entitlement("cust_123", "pro", duration="P7D")
 customers.revoke_promotional_entitlements("cust_123", "pro")
-customers.alias("cust_123", {...})
-customers.transfer("cust_123", {...})
-customers.set_attributes("cust_123", {...})
+customers.alias("cust_123", "alias_id")
+customers.transfer("cust_123", "cust_456")
+customers.set_attributes("cust_123", {"plan": "gold"})
 customers.get_offerings("cust_123")
-customers.create_token("cust_123")  # short-lived token for client SDKs
+customers.create_token("cust_123", expires_in=3600)  # short-lived token for client SDKs
 
-client.entitlements()  # list, create, get, update, delete, attach_products, detach_products
+client.entitlements()  # list, create, get, update(id, display_name), delete, attach_products(id, product_ids), detach_products(id, product_ids)
 client.products()  # list, create, get, update
 client.offerings()  # list, create, get, update, delete
 client.experiments()  # list, create, get, stop
-client.integrations()  # list, upsert, delete, test (kind: slack, segment, mixpanel)
+client.integrations()  # list, put, delete, test (kind: slack, segment, mixpanel)
 client.metrics().get("2026-01-01", "2026-01-31")  # dates optional
-client.subscriptions().list_renewal_prompts("sub_123")
+client.subscriptions().list_renewal_prompts()  # subscription_id optional
 client.subscriptions().send_renewal_prompt("sub_123")
 ```
 

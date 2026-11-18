@@ -170,6 +170,7 @@ class SubscriptionEventData:
     period_type: str | None = None
     expiration_at: str | None = None
     grace_period_expiration_at: str | None = None
+    external_customer_id: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SubscriptionEventData:
@@ -209,6 +210,7 @@ class SubscriptionEventData:
             period_type=_opt(data, "period_type"),
             expiration_at=_opt(data, "expiration_at"),
             grace_period_expiration_at=_opt(data, "grace_period_expiration_at"),
+            external_customer_id=_opt(data, "external_customer_id"),
         )
 
 

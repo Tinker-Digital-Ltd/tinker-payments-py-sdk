@@ -19,7 +19,7 @@ class AccessTests(unittest.TestCase):
     def test_customers(self):
         c = self.client.customers()
         cases = [
-            (lambda: c.get("u/1"), "GET", "customers/u%2F1", None),
+            (lambda: c.get_customer("u/1"), "GET", "customers/u%2F1", None),
             (
                 lambda: c.get_entitlement("u1", "pro"),
                 "GET",
@@ -27,9 +27,7 @@ class AccessTests(unittest.TestCase):
                 None,
             ),
             (
-                lambda: c.grant_promotional_entitlement(
-                    "u1", "pro", {"duration": "P7D"}
-                ),
+                lambda: c.grant_promotional_entitlement("u1", "pro", duration="P7D"),
                 "POST",
                 "customers/u1/entitlements/pro/promotional",
                 {"duration": "P7D"},
@@ -41,25 +39,31 @@ class AccessTests(unittest.TestCase):
                 None,
             ),
             (
-                lambda: c.alias("u1", {"new_id": "a"}),
+                lambda: c.alias("u1", "a"),
                 "POST",
                 "customers/u1/alias",
-                {"new_id": "a"},
+                {"alias": "a"},
             ),
             (
-                lambda: c.transfer("u1", {"to": "u2"}),
+                lambda: c.transfer("u1", "u2"),
                 "POST",
                 "customers/u1/transfer",
                 {"to": "u2"},
             ),
             (
-                lambda: c.set_attributes("u1", {"attributes": {}}),
+                lambda: c.set_attributes("u1", {"k": None}),
                 "POST",
                 "customers/u1/attributes",
-                {"attributes": {}},
+                {"attributes": {"k": None}},
             ),
             (lambda: c.get_offerings("u1"), "GET", "customers/u1/offerings", None),
             (lambda: c.create_token("u1"), "POST", "customers/u1/token", None),
+            (
+                lambda: c.create_token("u1", expires_in=300),
+                "POST",
+                "customers/u1/token",
+                {"expires_in": 300},
+            ),
         ]
         for call, method, path, body in cases:
             call()
@@ -81,20 +85,20 @@ class AccessTests(unittest.TestCase):
             ),
             (lambda: e.get("e1"), "GET", "entitlements/e1", None),
             (
-                lambda: e.update("e1", {"name": "n"}),
+                lambda: e.update("e1", "n"),
                 "PATCH",
                 "entitlements/e1",
-                {"name": "n"},
+                {"display_name": "n"},
             ),
             (lambda: e.delete("e1"), "DELETE", "entitlements/e1", None),
             (
-                lambda: e.attach_products("e1", {"product_ids": ["p"]}),
+                lambda: e.attach_products("e1", ["p"]),
                 "POST",
                 "entitlements/e1/attach_products",
                 {"product_ids": ["p"]},
             ),
             (
-                lambda: e.detach_products("e1", {"product_ids": ["p"]}),
+                lambda: e.detach_products("e1", ["p"]),
                 "POST",
                 "entitlements/e1/detach_products",
                 {"product_ids": ["p"]},
@@ -134,7 +138,7 @@ class AccessTests(unittest.TestCase):
             (lambda: x.stop("x1"), "POST", "experiments/x1/stop", None),
             (i.list, "GET", "integrations", None),
             (
-                lambda: i.upsert("slack", {"url": "u"}),
+                lambda: i.put("slack", {"url": "u"}),
                 "PUT",
                 "integrations/slack",
                 {"url": "u"},
@@ -155,6 +159,10 @@ class AccessTests(unittest.TestCase):
             self.last()[:2], ("GET", BASE + "metrics?from=2026-01-01&to=2026-01-31")
         )
         s = self.client.subscriptions()
+        s.list_renewal_prompts()
+        self.assertEqual(
+            self.last()[:2], ("GET", BASE + "subscriptions/renewal_prompts")
+        )
         s.list_renewal_prompts("sub_1")
         self.assertEqual(
             self.last()[:2],
@@ -211,6 +219,7 @@ class AccessTests(unittest.TestCase):
                 "source": "subscription",
                 "data": {
                     "subscription_id": "s",
+                    "external_customer_id": "u1",
                     "product_id": "p",
                     "entitlement_ids": ["pro"],
                     "grace_period_expiration_at": "g",
@@ -219,6 +228,7 @@ class AccessTests(unittest.TestCase):
         )
         self.assertEqual(sub.data.grace_period_expiration_at, "g")
         self.assertEqual(sub.data.entitlement_ids, ["pro"])
+        self.assertEqual(sub.data.external_customer_id, "u1")
 
 
 if __name__ == "__main__":

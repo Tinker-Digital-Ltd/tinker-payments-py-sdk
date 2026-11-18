@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote, urlencode
 
+from . import endpoints
 from .api import BaseManager
 
 
@@ -22,9 +23,9 @@ def _seg(value: str) -> str:
 
 class CustomerManager(BaseManager):
     def _path(self, customer_id: str, suffix: str = "") -> str:
-        return "merchant/customers/" + _seg(customer_id) + suffix
+        return endpoints.CUSTOMERS_PATH + "/" + _seg(customer_id) + suffix
 
-    def get(self, customer_id: str) -> dict[str, Any]:
+    def get_customer(self, customer_id: str) -> dict[str, Any]:
         return _obj(self._request("GET", self._path(customer_id)))
 
     def get_entitlement(self, customer_id: str, identifier: str) -> dict[str, Any]:
@@ -38,7 +39,8 @@ class CustomerManager(BaseManager):
         self,
         customer_id: str,
         identifier: str,
-        payload: dict[str, Any] | None = None,
+        duration: str | None = None,
+        end_time: str | None = None,
     ) -> dict[str, Any]:
         return _obj(
             self._request(
@@ -46,7 +48,11 @@ class CustomerManager(BaseManager):
                 self._path(
                     customer_id, "/entitlements/" + _seg(identifier) + "/promotional"
                 ),
-                payload,
+                {
+                    k: v
+                    for k, v in (("duration", duration), ("end_time", end_time))
+                    if v is not None
+                },
             )
         )
 
@@ -63,30 +69,44 @@ class CustomerManager(BaseManager):
             )
         )
 
-    def alias(self, customer_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-        return _obj(self._request("POST", self._path(customer_id, "/alias"), payload))
-
-    def transfer(self, customer_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def alias(self, customer_id: str, alias: str) -> dict[str, Any]:
         return _obj(
-            self._request("POST", self._path(customer_id, "/transfer"), payload)
+            self._request("POST", self._path(customer_id, "/alias"), {"alias": alias})
+        )
+
+    def transfer(self, customer_id: str, to: str) -> dict[str, Any]:
+        return _obj(
+            self._request("POST", self._path(customer_id, "/transfer"), {"to": to})
         )
 
     def set_attributes(
-        self, customer_id: str, payload: dict[str, Any]
+        self, customer_id: str, attributes: dict[str, str | None]
     ) -> dict[str, Any]:
         return _obj(
-            self._request("POST", self._path(customer_id, "/attributes"), payload)
+            self._request(
+                "POST",
+                self._path(customer_id, "/attributes"),
+                {"attributes": attributes},
+            )
         )
 
     def get_offerings(self, customer_id: str) -> dict[str, Any]:
         return _obj(self._request("GET", self._path(customer_id, "/offerings")))
 
-    def create_token(self, customer_id: str) -> dict[str, Any]:
-        return _obj(self._request("POST", self._path(customer_id, "/token")))
+    def create_token(
+        self, customer_id: str, expires_in: int | None = None
+    ) -> dict[str, Any]:
+        return _obj(
+            self._request(
+                "POST",
+                self._path(customer_id, "/token"),
+                None if expires_in is None else {"expires_in": expires_in},
+            )
+        )
 
 
 class EntitlementManager(BaseManager):
-    PATH = "merchant/entitlements"
+    PATH = endpoints.ENTITLEMENTS_PATH
 
     def _path(self, entitlement_id: str, suffix: str = "") -> str:
         return self.PATH + "/" + _seg(entitlement_id) + suffix
@@ -100,33 +120,41 @@ class EntitlementManager(BaseManager):
     def get(self, entitlement_id: str) -> dict[str, Any]:
         return _obj(self._request("GET", self._path(entitlement_id)))
 
-    def update(self, entitlement_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-        return _obj(self._request("PATCH", self._path(entitlement_id), payload))
+    def update(self, entitlement_id: str, display_name: str) -> dict[str, Any]:
+        return _obj(
+            self._request(
+                "PATCH", self._path(entitlement_id), {"display_name": display_name}
+            )
+        )
 
     def delete(self, entitlement_id: str) -> dict[str, Any]:
         return _obj(self._request("DELETE", self._path(entitlement_id)))
 
     def attach_products(
-        self, entitlement_id: str, payload: dict[str, Any]
+        self, entitlement_id: str, product_ids: list[str]
     ) -> dict[str, Any]:
         return _obj(
             self._request(
-                "POST", self._path(entitlement_id, "/attach_products"), payload
+                "POST",
+                self._path(entitlement_id, "/attach_products"),
+                {"product_ids": product_ids},
             )
         )
 
     def detach_products(
-        self, entitlement_id: str, payload: dict[str, Any]
+        self, entitlement_id: str, product_ids: list[str]
     ) -> dict[str, Any]:
         return _obj(
             self._request(
-                "POST", self._path(entitlement_id, "/detach_products"), payload
+                "POST",
+                self._path(entitlement_id, "/detach_products"),
+                {"product_ids": product_ids},
             )
         )
 
 
 class ProductManager(BaseManager):
-    PATH = "merchant/products"
+    PATH = endpoints.PRODUCTS_PATH
 
     def list(self) -> list[dict[str, Any]]:
         return _list(self._request("GET", self.PATH))
@@ -142,7 +170,7 @@ class ProductManager(BaseManager):
 
 
 class OfferingManager(BaseManager):
-    PATH = "merchant/offerings"
+    PATH = endpoints.OFFERINGS_PATH
 
     def list(self) -> list[dict[str, Any]]:
         return _list(self._request("GET", self.PATH))
@@ -170,12 +198,14 @@ class MetricsManager(BaseManager):
             {k: v for k, v in (("from", from_date), ("to", to_date)) if v}
         )
         return _obj(
-            self._request("GET", "merchant/metrics" + ("?" + query if query else ""))
+            self._request(
+                "GET", endpoints.METRICS_PATH + ("?" + query if query else "")
+            )
         )
 
 
 class ExperimentManager(BaseManager):
-    PATH = "merchant/experiments"
+    PATH = endpoints.EXPERIMENTS_PATH
 
     def list(self) -> list[dict[str, Any]]:
         return _list(self._request("GET", self.PATH))
@@ -193,12 +223,12 @@ class ExperimentManager(BaseManager):
 
 
 class IntegrationManager(BaseManager):
-    PATH = "merchant/integrations"
+    PATH = endpoints.INTEGRATIONS_PATH
 
     def list(self) -> list[dict[str, Any]]:
         return _list(self._request("GET", self.PATH))
 
-    def upsert(self, kind: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def put(self, kind: str, payload: dict[str, Any]) -> dict[str, Any]:
         return _obj(self._request("PUT", self.PATH + "/" + _seg(kind), payload))
 
     def delete(self, kind: str) -> dict[str, Any]:
