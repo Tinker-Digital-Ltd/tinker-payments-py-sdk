@@ -380,6 +380,19 @@
       "response": {
         "success": false,
         "error": {
+          "code": "PLATFORM_CREDENTIALS_UNAVAILABLE",
+          "message": "Tinker's credentials for adyen aren't available.",
+          "details": {
+            "gateway": "adyen"
+          }
+        }
+      }
+    },
+    {
+      "status": 422,
+      "response": {
+        "success": false,
+        "error": {
           "code": "CHECKOUT_CANCELLATION_UNSUPPORTED",
           "message": "Request cannot complete",
           "details": {
