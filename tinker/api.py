@@ -291,15 +291,14 @@ class SubscriptionManager(BaseManager):
         plan_id: str | None = None,
         external_customer_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        params = []
-        if plan_id and plan_id.strip():
-            params.append(f"plan_id={plan_id}")
-        if external_customer_id and external_customer_id.strip():
-            params.append(f"external_customer_id={external_customer_id}")
-
-        endpoint = endpoints.SUBSCRIPTION_BASE_PATH
-        if params:
-            endpoint = f"{endpoint}?{'&'.join(params)}"
+        query = urlencode(
+            {
+                k: v
+                for k, v in (("plan_id", plan_id), ("external_customer_id", external_customer_id))
+                if v and v.strip()
+            }
+        )
+        endpoint = endpoints.SUBSCRIPTION_BASE_PATH + ("?" + query if query else "")
 
         response = self._request("GET", endpoint)
         return response if isinstance(response, list) else []
