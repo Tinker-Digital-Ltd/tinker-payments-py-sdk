@@ -168,6 +168,15 @@ class AccessTests(unittest.TestCase):
             self.last()[:2],
             ("GET", BASE + "subscriptions/renewal_prompts?subscription_id=sub_1"),
         )
+        s.list_renewal_prompts("sub_1", 2, 50)
+        self.assertEqual(
+            self.last()[:2],
+            (
+                "GET",
+                BASE
+                + "subscriptions/renewal_prompts?subscription_id=sub_1&page=2&page_size=50",
+            ),
+        )
         s.send_renewal_prompt("sub_1")
         self.assertEqual(
             self.last()[:2], ("POST", BASE + "subscriptions/sub_1/renewal_prompt")

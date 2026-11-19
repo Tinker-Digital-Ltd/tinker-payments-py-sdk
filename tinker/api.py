@@ -305,17 +305,28 @@ class SubscriptionManager(BaseManager):
         return response if isinstance(response, list) else []
 
     def list_renewal_prompts(
-        self, subscription_id: str | None = None
-    ) -> list[dict[str, Any]]:
+        self,
+        subscription_id: str | None = None,
+        page: int | None = None,
+        page_size: int | None = None,
+    ) -> dict[str, Any]:
         query = urlencode(
-            {"subscription_id": subscription_id} if subscription_id else {}
+            {
+                k: v
+                for k, v in (
+                    ("subscription_id", subscription_id),
+                    ("page", page),
+                    ("page_size", page_size),
+                )
+                if v
+            }
         )
         response = self._request(
             "GET",
             endpoints.SUBSCRIPTION_RENEWAL_PROMPTS_PATH
             + ("?" + query if query else ""),
         )
-        return response if isinstance(response, list) else []
+        return response if isinstance(response, dict) else {"value": response}
 
     def send_renewal_prompt(self, subscription_id: str) -> dict[str, Any]:
         endpoint = (

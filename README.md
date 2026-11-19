@@ -2,13 +2,13 @@
 
 Python 3.9+ SDK with automatic authentication, payments, subscriptions and signed webhooks. Keep secret keys on the server.
 
-## Installation
+## Install and configure
 
 ```bash
 pip install tinker-payments
 ```
 
-## Quick Start
+## Payments
 
 ```python
 from tinker import TinkerClient
@@ -82,7 +82,7 @@ secrets = {
 
 The result arrives via `payment.*` webhooks. Apple Pay and Google Pay on the web need the checkout domain registered with Stripe.
 
-## Configuration
+### Configuration
 
 Test key prefixes (`pk_test_` or `sk_test_`) select `https://sandbox-api.tinkerpayments.com/v1/`; other keys select `https://api.tinkerpayments.com/v1/`. Override with `TinkerClient(pk, sk, base_url="https://custom-host/v1")`; pass `session=` for a requests-compatible transport.
 
@@ -190,34 +190,6 @@ subs.cancel("sub_123")
 
 `country` (ISO alpha-2) is optional on initiate and `subs.create`, `customerName` on initiate. `country` comes back on payments and `payment.*` webhooks.
 
-## Customer access
-
-Server-side access for one-time products and subscriptions. Responses are unwrapped data maps/lists.
-
-```python
-customers = client.customers()
-customers.get_customer("cust_123")
-customers.get_entitlement("cust_123", "pro")
-customers.grant_promotional_entitlement("cust_123", "pro", duration="P7D")  # or end_time (RFC3339), mutually exclusive with duration
-customers.revoke_promotional_entitlements("cust_123", "pro")
-customers.alias("cust_123", "alias_id")
-customers.transfer("cust_123", "cust_456")
-customers.set_attributes("cust_123", {"plan": "gold"})
-customers.get_offerings("cust_123")
-customers.create_token("cust_123", expires_in=3600)  # short-lived token for client SDKs; the app needs a public key first: new apps get one automatically, otherwise 409 PUBLIC_KEY_REQUIRED
-
-client.entitlements()  # list, create, get, update(id, display_name), delete, attach_products(id, product_ids), detach_products(id, product_ids)
-client.products()  # list, create, get, update
-client.offerings()  # list, create, get, update, delete
-client.experiments()  # list, create, get, stop
-client.integrations()  # list, put, delete, test (kind: slack, segment, mixpanel)
-client.metrics().get("2026-01-01", "2026-01-31")  # dates optional
-client.subscriptions().list_renewal_prompts()  # subscription_id optional
-client.subscriptions().send_renewal_prompt("sub_123")
-```
-
-Initiate payloads accept `productId`, `externalCustomerId` and `presentedOfferingId`. Webhooks add `purchase.completed`, `entitlement.*`, `customer.transferred` and `subscription.billing_issue`.
-
 ## Managed recurring billing
 
 Checkout uses exact integer minor-unit prices (`15000` = EUR 150.00), a `month` or `year` interval, and a quantity. The SDK does not convert prices or apply discounts. Responses are unwrapped data maps/objects.
@@ -300,6 +272,43 @@ The payment-method portal changes payment details only; quantity, price and over
 For payment history, keep the returned `snapshot` across `next_cursor` pages until `has_more` is false. Amounts are integer minor units and timestamps are UTC RFC3339. History covers captured cash, tax-exclusive eligible amounts, refunds, and dispute principal withdrawals/reinstatements (`reverses_id` identifies the reversed withdrawal).
 
 Quarantine items with `reconciliation_reason` and verify every page before committing a scan. The snapshot is an event cutoff, not an immutable provider snapshot: rescan from the first page to discover later adjustments, then apply facts idempotently by payment/adjustment ID. Zero-cash invoices advance pagination without an item. Processing/dispute fees are excluded from eligible principal; currency conversion and customer credits need explicit reconciliation.
+
+## Customer access
+
+Server-side access for one-time products and subscriptions, keyed by your own customer ID. An unknown customer fails with 404 `CUSTOMER_NOT_FOUND`. Responses are unwrapped data (dicts; lists are lists).
+
+```python
+customers = client.customers()
+customer = customers.get_customer("cust_123")
+pro = customers.get_entitlement("cust_123", "pro")
+if pro["is_active"]:
+    ...  # grant access
+
+customers.grant_promotional_entitlement("cust_123", "pro", duration="P1W")  # or end_time=RFC3339, not both; neither grants access until revoked
+customers.revoke_promotional_entitlements("cust_123", "pro")
+customers.alias("cust_123", "anon_456")
+customers.transfer("anon_456", "cust_123")
+customers.set_attributes("cust_123", {"$email": "jane@example.com"})  # None removes an attribute
+offerings = customers.get_offerings("cust_123")  # current_offering_identifier, experiment, offerings
+token = customers.create_token("cust_123", expires_in=3600)  # token, public_key, expires_at; 60 to 86400 seconds, default 3600; the app needs a public key first: new apps get one automatically, otherwise 409 PUBLIC_KEY_REQUIRED
+```
+
+Catalogue and reporting:
+
+```python
+pro = client.entitlements().create({"identifier": "pro", "display_name": "Pro"})
+client.entitlements().attach_products(pro["id"], [product_id])  # also detach_products, list, get, update, delete
+client.products().create({"name": "Credit pack", "price": 5, "currency": "USD", "access_period": "P30D"})  # list, get, update
+client.offerings().create({"identifier": "default", "is_current": True, "packages": [{"identifier": "monthly", "product_id": product_id}]})  # list, get, update, delete
+client.experiments().create({"name": "Price test", "control_offering_id": a, "treatment_offering_id": b})  # list, get, stop
+client.integrations().put("slack", {"secret": webhook_url, "enabled": True})  # list, delete, test (kind: slack, segment, mixpanel)
+client.metrics().get("2026-01-01", "2026-01-31")  # both dates optional
+client.subscriptions().list_invoices("sub_123", 1, 25)  # all arguments optional; returns items, total, page, page_size
+client.subscriptions().list_renewal_prompts("sub_123", 1, 25)  # same paging and result shape
+client.subscriptions().send_renewal_prompt("sub_123")
+```
+
+Initiate payloads accept `productId`, `externalCustomerId` and `presentedOfferingId`. Webhooks add `subscription.billing_issue`, `customer.transferred`, `purchase.completed`, `entitlement.granted`, `entitlement.revoked` and `entitlement.expired`.
 
 ## Refunds, wallet withdrawals and checkout cancellation
 
