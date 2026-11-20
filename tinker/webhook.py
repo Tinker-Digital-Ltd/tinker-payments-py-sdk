@@ -309,8 +309,6 @@ class WebhookEvent:
             | OnboardingEventData
             | EntitlementEventData
             | CustomerEventData
-            | EntitlementEventData
-            | CustomerEventData
         )
 
         if source == "entitlement" or (
