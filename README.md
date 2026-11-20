@@ -186,6 +186,7 @@ subs.update_plan("plan_123", {"name": "Pro", "amount": 1000, "currency": "KES", 
 subs.delete_plan("plan_123")
 subs.list_invoices(subscription_id="sub_123", page=1, page_size=25)  # all arguments optional
 subs.cancel("sub_123")
+subs.uncancel("sub_123")  # undo a cancellation scheduled for the period end; 409 SUBSCRIPTION_ENDED, SUBSCRIPTION_NOT_SCHEDULED_TO_CANCEL or UNCANCEL_NOT_SUPPORTED
 ```
 
 `country` (ISO alpha-2) is optional on initiate and `subs.create`, `customerName` on initiate. `country` comes back on payments and `payment.*` webhooks.
@@ -309,7 +310,7 @@ client.subscriptions().list_renewal_prompts("sub_123", 1, 25)  # same paging and
 client.subscriptions().send_renewal_prompt("sub_123")
 ```
 
-Initiate payloads accept `productId`, `externalCustomerId` and `presentedOfferingId`. Webhooks add `subscription.billing_issue`, `customer.transferred`, `purchase.completed`, `entitlement.granted`, `entitlement.revoked` and `entitlement.expired`.
+Initiate payloads accept `productId`, `externalCustomerId` and `presentedOfferingId`. Webhooks add `subscription.billing_issue`, `subscription.uncancelled`, `subscription.product_changed`, `subscription.extended`, `customer.transferred`, `purchase.completed`, `entitlement.granted`, `entitlement.revoked` and `entitlement.expired`.
 
 ## Refunds, wallet withdrawals and checkout cancellation
 

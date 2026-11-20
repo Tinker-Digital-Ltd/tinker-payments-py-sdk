@@ -340,6 +340,11 @@ class SubscriptionManager(BaseManager):
         response = self._request("POST", endpoint)
         return response if isinstance(response, dict) else {"value": response}
 
+    def uncancel(self, subscription_id: str) -> dict[str, Any]:
+        endpoint = f"{endpoints.SUBSCRIPTION_BASE_PATH}/{subscription_id}/uncancel"
+        response = self._request("POST", endpoint)
+        return response if isinstance(response, dict) else {"value": response}
+
     def checkout(self, request: ManagedCheckout) -> dict[str, Any]:
         return self._request("POST", "merchant/billing/checkout", request.to_dict())
 

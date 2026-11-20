@@ -66,6 +66,8 @@ class EntitlementEventData:
     purchased_at: str | None = None
     presented_offering_id: str | None = None
     revoked_at: str | None = None
+    environment: str | None = None
+    original_transaction_id: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EntitlementEventData:
@@ -83,6 +85,8 @@ class EntitlementEventData:
             purchased_at=_opt(data, "purchased_at"),
             presented_offering_id=_opt(data, "presented_offering_id"),
             revoked_at=_opt(data, "revoked_at"),
+            environment=_opt(data, "environment"),
+            original_transaction_id=_opt(data, "original_transaction_id"),
         )
 
 
@@ -171,6 +175,14 @@ class SubscriptionEventData:
     expiration_at: str | None = None
     grace_period_expiration_at: str | None = None
     external_customer_id: str | None = None
+    cancel_reason: str | None = None
+    expiration_reason: str | None = None
+    environment: str | None = None
+    presented_offering_id: str | None = None
+    transaction_id: str | None = None
+    original_transaction_id: str | None = None
+    previous_product_id: str | None = None
+    previous_expiration_at: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SubscriptionEventData:
@@ -211,6 +223,14 @@ class SubscriptionEventData:
             expiration_at=_opt(data, "expiration_at"),
             grace_period_expiration_at=_opt(data, "grace_period_expiration_at"),
             external_customer_id=_opt(data, "external_customer_id"),
+            cancel_reason=_opt(data, "cancel_reason"),
+            expiration_reason=_opt(data, "expiration_reason"),
+            environment=_opt(data, "environment"),
+            presented_offering_id=_opt(data, "presented_offering_id"),
+            transaction_id=_opt(data, "transaction_id"),
+            original_transaction_id=_opt(data, "original_transaction_id"),
+            previous_product_id=_opt(data, "previous_product_id"),
+            previous_expiration_at=_opt(data, "previous_expiration_at"),
         )
 
 

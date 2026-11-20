@@ -189,6 +189,12 @@ class AccessTests(unittest.TestCase):
             self.last()[:2], ("POST", BASE + "subscriptions/sub_1/renewal_prompt")
         )
 
+    def test_uncancel(self):
+        self.client.subscriptions().uncancel("sub_1")
+        self.assertEqual(
+            self.last(), ("POST", BASE + "subscriptions/sub_1/uncancel", None)
+        )
+
     def test_webhook_events(self):
         h = self.client.webhooks()
         base = {"id": "e", "timestamp": "t", "meta": {"app_id": "a"}}
@@ -245,6 +251,39 @@ class AccessTests(unittest.TestCase):
         self.assertEqual(sub.data.grace_period_expiration_at, "g")
         self.assertEqual(sub.data.entitlement_ids, ["pro"])
         self.assertEqual(sub.data.external_customer_id, "u1")
+        changed = h.handle(
+            {
+                **base,
+                "type": "subscription.product_changed",
+                "source": "subscription",
+                "data": {
+                    "subscription_id": "s",
+                    "product_id": "p2",
+                    "previous_product_id": "p1",
+                    "previous_expiration_at": "x",
+                    "cancel_reason": "UNKNOWN",
+                    "environment": "SANDBOX",
+                    "presented_offering_id": "o",
+                    "transaction_id": "t1",
+                    "original_transaction_id": "t0",
+                },
+            }
+        )
+        self.assertEqual(
+            (
+                changed.data.product_id,
+                changed.data.previous_product_id,
+                changed.data.previous_expiration_at,
+                changed.data.cancel_reason,
+                changed.data.expiration_reason,
+                changed.data.environment,
+                changed.data.presented_offering_id,
+                changed.data.transaction_id,
+                changed.data.original_transaction_id,
+            ),
+            ("p2", "p1", "x", "UNKNOWN", None, "SANDBOX", "o", "t1", "t0"),
+        )
+        self.assertIsNone(purchase.data.environment)
 
 
 if __name__ == "__main__":
