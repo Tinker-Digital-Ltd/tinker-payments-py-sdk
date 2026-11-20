@@ -25,6 +25,29 @@ class CustomerManager(BaseManager):
     def _path(self, customer_id: str, suffix: str = "") -> str:
         return endpoints.CUSTOMERS_PATH + "/" + _seg(customer_id) + suffix
 
+    def list_customers(
+        self,
+        search: str | None = None,
+        page: int | None = None,
+        page_size: int | None = None,
+    ) -> dict[str, Any]:
+        query = urlencode(
+            {
+                k: v
+                for k, v in (
+                    ("search", search),
+                    ("page", page),
+                    ("page_size", page_size),
+                )
+                if v
+            }
+        )
+        return _obj(
+            self._request(
+                "GET", endpoints.CUSTOMERS_PATH + ("?" + query if query else "")
+            )
+        )
+
     def get_customer(self, customer_id: str) -> dict[str, Any]:
         return _obj(self._request("GET", self._path(customer_id)))
 

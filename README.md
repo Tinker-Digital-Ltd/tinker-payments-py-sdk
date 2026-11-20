@@ -279,6 +279,7 @@ Server-side access for one-time products and subscriptions, keyed by your own cu
 
 ```python
 customers = client.customers()
+page = customers.list_customers("cust", 1, 50)  # search is a prefix of the customer ID or email; all arguments optional, at most 50 per page; returns items, total, page, page_size
 customer = customers.get_customer("cust_123")
 pro = customers.get_entitlement("cust_123", "pro")
 if pro["is_active"]:
@@ -300,7 +301,7 @@ pro = client.entitlements().create({"identifier": "pro", "display_name": "Pro"})
 client.entitlements().attach_products(pro["id"], [product_id])  # also detach_products, list, get, update, delete
 client.products().create({"name": "Credit pack", "price": 5, "currency": "USD", "access_period": "P30D"})  # list, get, update
 client.offerings().create({"identifier": "default", "is_current": True, "packages": [{"identifier": "monthly", "product_id": product_id}]})  # list, get, update, delete
-client.experiments().create({"name": "Price test", "control_offering_id": a, "treatment_offering_id": b})  # list, get, stop
+client.experiments().create({"name": "Price test", "control_offering_id": a, "treatment_offering_id": b})  # list, get, stop; an experiment's offering IDs are None once the offering is deleted, and results include revenue_by_currency per variant
 client.integrations().put("slack", {"secret": webhook_url, "enabled": True})  # list, delete, test (kind: slack, segment, mixpanel)
 client.metrics().get("2026-01-01", "2026-01-31")  # both dates optional
 client.subscriptions().list_invoices("sub_123", 1, 25)  # all arguments optional; returns items, total, page, page_size

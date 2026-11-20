@@ -19,6 +19,13 @@ class AccessTests(unittest.TestCase):
     def test_customers(self):
         c = self.client.customers()
         cases = [
+            (lambda: c.list_customers(), "GET", "customers", None),
+            (
+                lambda: c.list_customers("a b", 2, 50),
+                "GET",
+                "customers?search=a+b&page=2&page_size=50",
+                None,
+            ),
             (lambda: c.get_customer("u/1"), "GET", "customers/u%2F1", None),
             (
                 lambda: c.get_entitlement("u1", "pro"),
